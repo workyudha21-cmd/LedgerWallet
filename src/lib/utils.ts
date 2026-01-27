@@ -19,3 +19,10 @@ export function formatCurrency(amount: number, currency: 'IDR' | 'USD' = 'IDR') 
     currency: 'USD',
   }).format(amount)
 }
+
+export function formatCompactNumber(number: number) {
+  return new Intl.NumberFormat('en-US', {
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(number)
+}

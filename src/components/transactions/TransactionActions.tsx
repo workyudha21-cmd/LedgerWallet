@@ -49,7 +49,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         amount: Number(values.amount),
         type: values.type,
         category: values.category,
-        date: values.date,
+        date: values.date.toISOString(),
     })
     setOpenEdit(false)
   }
@@ -87,7 +87,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 amount: String(transaction.amount),
                 type: transaction.type,
                 category: transaction.category,
-                date: transaction.date, // Already ISO string
+                date: new Date(transaction.date),
             }} 
             onSubmit={onEditSubmit} 
             submitLabel="Save Changes" 

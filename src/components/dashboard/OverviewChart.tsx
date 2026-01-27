@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 import { useTransactionStore } from "@/lib/store"
 import { format, subMonths } from "date-fns"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatCompactNumber } from "@/lib/utils"
 
 export function OverviewChart() {
   const { transactions, currency } = useTransactionStore()
@@ -44,7 +44,7 @@ export function OverviewChart() {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => formatCurrency(value, currency)}
+              tickFormatter={(value) => formatCompactNumber(value)}
             />
             <Tooltip 
                 cursor={{fill: 'var(--muted)'}}

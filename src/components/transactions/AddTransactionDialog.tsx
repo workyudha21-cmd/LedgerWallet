@@ -25,7 +25,7 @@ export function AddTransactionDialog({ children }: { children: React.ReactNode }
       amount: Number(values.amount),
       type: values.type,
       category: values.category,
-      date: values.date,
+      date: values.date.toISOString(), // Firestore prefers ISO strings or Timestamp, store expects string
     }, user.uid)
     setOpen(false)
   }

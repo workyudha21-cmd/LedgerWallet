@@ -34,12 +34,20 @@ export interface Category {
   name: string
   type: TransactionType
   userId: string
-  isDefault?: boolean // To distinguish if needed, though defaults are in constants
+  isDefault?: boolean
+}
+
+export interface Budget {
+  id: string
+  category: string
+  amount: number
+  userId: string
 }
 
 interface TransactionState {
   transactions: Transaction[]
   categories: Category[]
+  budgets: Budget[]
   currency: 'IDR' | 'USD'
   loading: boolean
   setCurrency: (currency: 'IDR' | 'USD') => void
@@ -52,10 +60,14 @@ interface TransactionState {
   addCategory: (category: Omit<Category, 'id' | 'userId'>, userId: string) => Promise<void>
   removeCategory: (id: string) => Promise<void>
   seedDefaults: (userId: string) => Promise<void>
+
+  addBudget: (budget: Omit<Budget, 'id' | 'userId'>, userId: string) => Promise<void>
+  removeBudget: (id: string) => Promise<void>
   
   // Real-time Subscription
   subscribeToTransactions: (userId: string) => () => void
   subscribeToCategories: (userId: string) => () => void
+  subscribeToBudgets: (userId: string) => () => void
 }
 
 export const useTransactionStore = create<TransactionState>()(
@@ -63,13 +75,13 @@ export const useTransactionStore = create<TransactionState>()(
     (set, get) => ({
       transactions: [],
       categories: [],
+      budgets: [],
       currency: 'IDR',
       loading: false,
 
       setCurrency: (currency) => set({ currency }),
 
       addTransaction: async (formData, userId) => {
-          // ... (existing implementation)
          try {
           await addDoc(collection(db, 'transactions'), {
             ...formData,
@@ -83,7 +95,6 @@ export const useTransactionStore = create<TransactionState>()(
       },
 
       removeTransaction: async (id) => {
-        // ... (existing implementation)
         try {
           await deleteDoc(doc(db, 'transactions', id))
         } catch (error) {
@@ -92,7 +103,6 @@ export const useTransactionStore = create<TransactionState>()(
       },
 
       editTransaction: async (id, updates) => {
-        // ... (existing implementation)
         try {
             const transactionRef = doc(db, 'transactions', id)
             await updateDoc(transactionRef, updates)
@@ -134,8 +144,37 @@ export const useTransactionStore = create<TransactionState>()(
         }
       },
 
+      addBudget: async (budget, userId) => {
+        try {
+            // Check if budget for this category already exists
+            const budgets = get().budgets
+            const existing = budgets.find(b => b.category === budget.category && b.userId === userId)
+            
+            if (existing) {
+                // Update existing instead
+                await updateDoc(doc(db, 'budgets', existing.id), { amount: budget.amount })
+            } else {
+                await addDoc(collection(db, 'budgets'), {
+                    ...budget,
+                    userId,
+                    createdAt: Timestamp.now()
+                })
+            }
+        } catch (error: any) {
+             console.error("Error adding/updating budget: ", error)
+             alert(`Failed to save budget: ${error.message}`)
+        }
+      },
+
+      removeBudget: async (id) => {
+        try {
+            await deleteDoc(doc(db, 'budgets', id))
+        } catch (error) {
+            console.error("Error removing budget: ", error)
+        }
+      },
+
       subscribeToTransactions: (userId) => {
-        // ... (existing implementation)
         set({ loading: true })
         
         const q = query(
@@ -177,6 +216,25 @@ export const useTransactionStore = create<TransactionState>()(
             set({ categories })
         }, (error) => {
             console.error("Error fetching categories: ", error)
+        })
+
+        return unsubscribe
+      },
+
+      subscribeToBudgets: (userId) => {
+        const q = query(
+            collection(db, 'budgets'),
+            where("userId", "==", userId)
+        )
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const budgets: Budget[] = []
+            querySnapshot.forEach((doc) => {
+                budgets.push({ id: doc.id, ...doc.data() } as Budget)
+            })
+            set({ budgets })
+        }, (error) => {
+            console.error("Error fetching budgets: ", error)
         })
 
         return unsubscribe

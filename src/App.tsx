@@ -20,13 +20,19 @@ function App() {
   const setUser = useAuthStore((state) => state.setUser)
   const [loading, setLoading] = useState(true)
 
-  const { subscribeToTransactions, subscribeToCategories } = useTransactionStore()
+  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets } = useTransactionStore()
 
   useEffect(() => {
     let unsubscribeTransactions: () => void
     let unsubscribeCategories: () => void
+    let unsubscribeBudgets: () => void
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Cleanup previous subscriptions if they exist to prevent permission errors on logout
+      if (unsubscribeTransactions) unsubscribeTransactions()
+      if (unsubscribeCategories) unsubscribeCategories()
+      if (unsubscribeBudgets) unsubscribeBudgets()
+
       setUser(user)
       setLoading(false)
       
@@ -34,9 +40,10 @@ function App() {
         // Start listening to Firestore
         unsubscribeTransactions = subscribeToTransactions(user.uid)
         unsubscribeCategories = subscribeToCategories(user.uid)
+        unsubscribeBudgets = subscribeToBudgets(user.uid)
       } else {
         // Clear transactions if logged out (optional but good for security)
-        useTransactionStore.setState({ transactions: [], categories: [] })
+        useTransactionStore.setState({ transactions: [], categories: [], budgets: [] })
       }
     })
 
@@ -44,8 +51,9 @@ function App() {
         unsubscribeAuth()
         if (unsubscribeTransactions) unsubscribeTransactions()
         if (unsubscribeCategories) unsubscribeCategories()
+        if (unsubscribeBudgets) unsubscribeBudgets()
     }
-  }, [setUser, subscribeToTransactions, subscribeToCategories])
+  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets])
 
   // Auto-seed defaults if empty (migrating to DB-only source)
   const { categories, seedDefaults } = useTransactionStore()

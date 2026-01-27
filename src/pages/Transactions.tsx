@@ -10,9 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
 import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Plus, Download } from "lucide-react"
+import { Plus } from "lucide-react"
 import { AddTransactionDialog } from "@/components/transactions/AddTransactionDialog"
 import { TransactionActions } from "@/components/transactions/TransactionActions"
+import { ExportButton } from "@/components/common/ExportButton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState } from "react"
@@ -46,29 +47,14 @@ export function Transactions() {
   })
 
   // ... (exportCSV function) 
-  const exportCSV = () => {
-    const headers = ["Description,Category,Type,Amount,Date"]
-    const rows = filteredTransactions.map(t => 
-        `"${t.description}","${t.category}","${t.type}","${t.amount}","${t.date}"`
-    )
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", "transactions.csv")
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
+
 
   return (
     <div className="flex-1 space-y-4">
        <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
         <h2 className="text-3xl font-bold tracking-tight">Transactions</h2>
         <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={exportCSV}>
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
+            <ExportButton transactions={filteredTransactions} currency={currency} />
             <AddTransactionDialog>
                 <Button>
                     <Plus className="mr-2 h-4 w-4" /> Add Transaction
@@ -83,32 +69,35 @@ export function Transactions() {
             placeholder="Search description or category..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="md:w-[300px]"
+            className="w-full md:w-[300px]"
         />
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="income">Income</SelectItem>
-                <SelectItem value="expense">Expense</SelectItem>
-            </SelectContent>
-        </Select>
-         <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Dates" />
-            </SelectTrigger>
-             <SelectContent>
-                <SelectItem value="all">All Dates</SelectItem>
-                <SelectItem value="thisMonth">This Month</SelectItem>
-                <SelectItem value="lastMonth">Last Month</SelectItem>
-                 <SelectItem value="thisYear">This Year</SelectItem>
-            </SelectContent>
-        </Select>
+        <div className="flex gap-2 w-full md:w-auto">
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full md:w-[150px]">
+                    <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                </SelectContent>
+            </Select>
+             <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-full md:w-[150px]">
+                    <SelectValue placeholder="All Dates" />
+                </SelectTrigger>
+                 <SelectContent>
+                    <SelectItem value="all">All Dates</SelectItem>
+                    <SelectItem value="thisMonth">This Month</SelectItem>
+                    <SelectItem value="lastMonth">Last Month</SelectItem>
+                     <SelectItem value="thisYear">This Year</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
       </div>
     
-      <Card>
+      {/* Desktop View */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>All Transactions ({filteredTransactions.length})</CardTitle>
         </CardHeader>
@@ -149,6 +138,41 @@ export function Transactions() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Mobile View */}
+      <div className="space-y-4 md:hidden">
+        <h3 className="font-semibold text-muted-foreground mb-2">
+            All Transactions ({filteredTransactions.length})
+        </h3>
+        {filteredTransactions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground bg-card rounded-lg border">
+                No transactions found matching your filters.
+            </div>
+        ) : (
+            filteredTransactions.map((t) => (
+                <Card key={t.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="font-bold truncate pr-2">{t.description}</div>
+                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                                {t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
+                             <div className="flex items-center gap-2">
+                                <span>{format(new Date(t.date), 'MMM dd, yyyy')}</span>
+                                <span>•</span>
+                                <span className="capitalize">{t.category}</span>
+                             </div>
+                        </div>
+                        <div className="flex justify-end border-t pt-3">
+                             <TransactionActions transaction={t} />
+                        </div>
+                    </CardContent>
+                </Card>
+            ))
+        )}
+      </div>
     </div>
   )
 }
