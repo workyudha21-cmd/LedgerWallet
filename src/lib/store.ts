@@ -56,11 +56,27 @@ export interface Budget {
   userId: string
 }
 
+export interface RecurringTransaction {
+  id: string
+  userId: string
+  name: string
+  amount: number
+  type: TransactionType
+  category: string
+  accountId: string
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  startDate: string // ISO string
+  nextRunDate: string // ISO string
+  active: boolean
+  lastRunDate?: string
+}
+
 interface TransactionState {
   transactions: Transaction[]
   categories: Category[]
   budgets: Budget[]
   accounts: Account[]
+  recurringTransactions: RecurringTransaction[]
   currency: 'IDR' | 'USD'
   loading: boolean
   setCurrency: (currency: 'IDR' | 'USD') => void
@@ -81,11 +97,18 @@ interface TransactionState {
   removeAccount: (id: string) => Promise<void>
   editAccount: (id: string, updates: Partial<Omit<Account, 'id' | 'userId'>>) => Promise<void>
 
+  // Recurring Actions
+  addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId'>, userId: string) => Promise<void>
+  editRecurringTransaction: (id: string, updates: Partial<Omit<RecurringTransaction, 'id' | 'userId'>>) => Promise<void>
+  deleteRecurringTransaction: (id: string) => Promise<void>
+  processRecurringTransactions: (userId: string) => Promise<void>
+
   // Real-time Subscription
   subscribeToTransactions: (userId: string) => () => void
   subscribeToCategories: (userId: string) => () => void
   subscribeToBudgets: (userId: string) => () => void
   subscribeToAccounts: (userId: string) => () => void
+  subscribeToRecurringTransactions: (userId: string) => () => void
 }
 
 export const useTransactionStore = create<TransactionState>()(
@@ -95,6 +118,7 @@ export const useTransactionStore = create<TransactionState>()(
       categories: [],
       budgets: [],
       accounts: [],
+      recurringTransactions: [],
       currency: 'IDR',
       loading: false,
 
@@ -308,6 +332,107 @@ export const useTransactionStore = create<TransactionState>()(
           try {
               await updateDoc(doc(db, 'accounts', id), updates)
           } catch(e) { console.error(e) }
+      },
+
+      // Recurring Transactions Implementation
+      addRecurringTransaction: async (data, userId) => {
+          try {
+              await addDoc(collection(db, 'recurring_transactions'), {
+                  ...data,
+                  userId,
+                  createdAt: Timestamp.now()
+              })
+          } catch (e) { console.error("Error adding recurring:", e) }
+      },
+
+      editRecurringTransaction: async (id, updates) => {
+          try {
+              await updateDoc(doc(db, 'recurring_transactions', id), updates)
+          } catch (e) { console.error("Error editing recurring:", e) }
+      },
+
+      deleteRecurringTransaction: async (id) => {
+          try {
+              await deleteDoc(doc(db, 'recurring_transactions', id))
+          } catch (e) { console.error("Error deleting recurring:", e) }
+      },
+
+      subscribeToRecurringTransactions: (userId) => {
+          const q = query(
+              collection(db, 'recurring_transactions'), 
+              where('userId', '==', userId)
+          )
+          return onSnapshot(q, (snapshot) => {
+              const recurring = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringTransaction))
+              set({ recurringTransactions: recurring })
+              
+              // Check for due transactions whenever the list updates or on load
+              get().processRecurringTransactions(userId)
+          }, (error) => {
+              console.error("Error subscribing to recurring transactions:", error)
+          })
+      },
+
+      processRecurringTransactions: async (userId) => {
+          const { recurringTransactions, accounts } = get()
+          const now = new Date()
+          const due = recurringTransactions.filter(rt => rt.active && new Date(rt.nextRunDate) <= now)
+
+          if (due.length === 0) return
+
+          const batch = writeBatch(db)
+          let hasUpdates = false
+
+          due.forEach(rt => {
+              // 1. Create Transaction
+              const newTransRef = doc(collection(db, 'transactions'))
+              const transactionData = {
+                  amount: rt.amount,
+                  type: rt.type,
+                  category: rt.category,
+                  description: `Recurring: ${rt.name}`,
+                  date: rt.nextRunDate, // Use the scheduled date
+                  userId,
+                  accountId: rt.accountId,
+                  createdAt: Timestamp.now()
+              }
+              batch.set(newTransRef, transactionData)
+
+              // 2. Update Account Balance
+              const account = accounts.find(a => a.id === rt.accountId)
+              if (account) {
+                  const accountRef = doc(db, 'accounts', rt.accountId)
+                  let newBalance = account.balance
+                  if (rt.type === 'income') newBalance += rt.amount
+                  else newBalance -= rt.amount
+                  batch.update(accountRef, { balance: newBalance })
+              }
+
+              // 3. Update Next Run Date
+              const nextDate = new Date(rt.nextRunDate)
+              switch(rt.frequency) {
+                  case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+                  case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+                  case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+                  case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+              }
+              
+              const rtRef = doc(db, 'recurring_transactions', rt.id)
+              batch.update(rtRef, { 
+                  lastRunDate: rt.nextRunDate,
+                  nextRunDate: nextDate.toISOString() 
+              })
+              hasUpdates = true
+          })
+
+          if (hasUpdates) {
+              try {
+                  await batch.commit()
+                  console.log(`Processed ${due.length} recurring transactions`)
+              } catch (e) {
+                  console.error("Error processing recurring:", e)
+              }
+          }
       },
 
       subscribeToTransactions: (userId) => {

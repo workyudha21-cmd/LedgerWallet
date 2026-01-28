@@ -3,6 +3,7 @@ import { AppLayout } from "./components/layout/AppLayout"
 import { Dashboard } from "./pages/Dashboard"
 import { Transactions } from "./pages/Transactions"
 import { Accounts } from "./pages/Accounts"
+import { Recurring } from "./pages/Recurring"
 import { ThemeProvider } from "./components/theme-provider"
 import { Login } from "./pages/Login"
 import { useAuthStore } from "./lib/auth-store"
@@ -21,13 +22,14 @@ function App() {
   const setUser = useAuthStore((state) => state.setUser)
   const [loading, setLoading] = useState(true)
 
-  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts } = useTransactionStore()
+  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions } = useTransactionStore()
 
   useEffect(() => {
     let unsubscribeTransactions: () => void
     let unsubscribeCategories: () => void
     let unsubscribeBudgets: () => void
     let unsubscribeAccounts: () => void
+    let unsubscribeRecurringTransactions: () => void
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       // Cleanup previous subscriptions if they exist to prevent permission errors on logout
@@ -45,6 +47,8 @@ function App() {
         unsubscribeCategories = subscribeToCategories(user.uid)
         unsubscribeBudgets = subscribeToBudgets(user.uid)
         unsubscribeAccounts = subscribeToAccounts(user.uid)
+        // Also subscribe to recurring (which triggers the processing loop)
+        unsubscribeRecurringTransactions = subscribeToRecurringTransactions(user.uid)
       } else {
         // Clear transactions if logged out (optional but good for security)
         useTransactionStore.setState({ transactions: [], categories: [], budgets: [], accounts: [] })
@@ -57,8 +61,9 @@ function App() {
         if (unsubscribeCategories) unsubscribeCategories()
         if (unsubscribeBudgets) unsubscribeBudgets()
         if (unsubscribeAccounts) unsubscribeAccounts()
+        if (unsubscribeRecurringTransactions) unsubscribeRecurringTransactions()
     }
-  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts])
+  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions])
 
   // Auto-seed defaults if empty (migrating to DB-only source)
   const { categories, seedDefaults } = useTransactionStore()
@@ -90,6 +95,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="accounts" element={<Accounts />} />
+            <Route path="recurring" element={<Recurring />} />
           </Route>
         </Routes>
       </BrowserRouter>

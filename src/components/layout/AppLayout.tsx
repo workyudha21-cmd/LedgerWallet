@@ -1,5 +1,5 @@
 import { Outlet, Link } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu, Wallet } from "lucide-react"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { useAuthStore } from "@/lib/auth-store"
@@ -55,6 +55,14 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         >
           <Wallet className="h-4 w-4" />
           Accounts
+        </Link>
+        <Link
+          to="/recurring"
+          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          onClick={onLinkClick}
+        >
+          <CalendarClock className="h-4 w-4" />
+          Recurring
         </Link>
       </nav>
 
