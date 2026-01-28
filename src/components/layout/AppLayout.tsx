@@ -1,5 +1,5 @@
 import { Outlet, Link } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu } from "lucide-react"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { useAuthStore } from "@/lib/auth-store"
@@ -47,6 +47,14 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         >
           <Receipt className="h-4 w-4" />
           Transactions
+        </Link>
+        <Link
+          to="/accounts"
+          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          onClick={onLinkClick}
+        >
+          <Wallet className="h-4 w-4" />
+          Accounts
         </Link>
       </nav>
 

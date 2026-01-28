@@ -33,6 +33,7 @@ const formSchema = z.object({
   }),
   type: z.enum(["income", "expense"]),
   category: z.string().min(1, { message: "Category is required" }),
+  accountId: z.string().min(1, { message: "Account is required" }),
   date: z.date(),
 })
 
@@ -49,6 +50,8 @@ import { useTransactionStore } from "@/lib/store"
 // ... (previous imports)
 
 export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" }: TransactionFormProps) {
+  const { categories, accounts } = useTransactionStore()
+  
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -56,6 +59,7 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
       amount: "",
       type: "expense",
       category: "",
+      accountId: accounts.length > 0 ? accounts[0].id : "",
       date: new Date(),
       ...defaultValues
     },
@@ -63,8 +67,6 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
 
   // Watch type change to reset category or filter options
   const type = form.watch("type")
-
-  const { categories } = useTransactionStore()
 
   // Prepare category options
   const allCategories = categories
@@ -74,6 +76,30 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="accountId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Account</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="type"

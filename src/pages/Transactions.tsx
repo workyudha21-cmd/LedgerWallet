@@ -107,6 +107,7 @@ export function Transactions() {
               <TableRow>
                 <TableHead>Description</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -124,6 +125,12 @@ export function Transactions() {
                   <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.description}</TableCell>
                       <TableCell>{t.category}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {transactions.find(tr => tr.id === t.id)?.accountId 
+                            ? useTransactionStore.getState().accounts.find(a => a.id === t.accountId)?.name || '-' 
+                            : '-'
+                        }
+                      </TableCell>
                       <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
                       <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
                       {t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}

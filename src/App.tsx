@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AppLayout } from "./components/layout/AppLayout"
 import { Dashboard } from "./pages/Dashboard"
 import { Transactions } from "./pages/Transactions"
+import { Accounts } from "./pages/Accounts"
 import { ThemeProvider } from "./components/theme-provider"
 import { Login } from "./pages/Login"
 import { useAuthStore } from "./lib/auth-store"
@@ -20,18 +21,20 @@ function App() {
   const setUser = useAuthStore((state) => state.setUser)
   const [loading, setLoading] = useState(true)
 
-  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets } = useTransactionStore()
+  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts } = useTransactionStore()
 
   useEffect(() => {
     let unsubscribeTransactions: () => void
     let unsubscribeCategories: () => void
     let unsubscribeBudgets: () => void
+    let unsubscribeAccounts: () => void
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       // Cleanup previous subscriptions if they exist to prevent permission errors on logout
       if (unsubscribeTransactions) unsubscribeTransactions()
       if (unsubscribeCategories) unsubscribeCategories()
       if (unsubscribeBudgets) unsubscribeBudgets()
+      if (unsubscribeAccounts) unsubscribeAccounts()
 
       setUser(user)
       setLoading(false)
@@ -41,9 +44,10 @@ function App() {
         unsubscribeTransactions = subscribeToTransactions(user.uid)
         unsubscribeCategories = subscribeToCategories(user.uid)
         unsubscribeBudgets = subscribeToBudgets(user.uid)
+        unsubscribeAccounts = subscribeToAccounts(user.uid)
       } else {
         // Clear transactions if logged out (optional but good for security)
-        useTransactionStore.setState({ transactions: [], categories: [], budgets: [] })
+        useTransactionStore.setState({ transactions: [], categories: [], budgets: [], accounts: [] })
       }
     })
 
@@ -52,8 +56,9 @@ function App() {
         if (unsubscribeTransactions) unsubscribeTransactions()
         if (unsubscribeCategories) unsubscribeCategories()
         if (unsubscribeBudgets) unsubscribeBudgets()
+        if (unsubscribeAccounts) unsubscribeAccounts()
     }
-  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets])
+  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts])
 
   // Auto-seed defaults if empty (migrating to DB-only source)
   const { categories, seedDefaults } = useTransactionStore()
@@ -84,6 +89,7 @@ function App() {
           }>
             <Route index element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
+            <Route path="accounts" element={<Accounts />} />
           </Route>
         </Routes>
       </BrowserRouter>

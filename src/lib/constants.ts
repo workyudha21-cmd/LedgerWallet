@@ -23,3 +23,11 @@ export const EXPENSE_CATEGORIES = [
 ] as const
 
 export const ALL_CATEGORIES = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES] as const
+
+export const ACCOUNT_TYPES = [
+  "Cash",
+  "Bank",
+  "Wallet",
+  "Investment",
+  "Other"
+] as const
