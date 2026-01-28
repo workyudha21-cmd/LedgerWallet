@@ -105,9 +105,16 @@ export function Goals() {
                     </CardHeader>
                     <CardContent>
                         <div className="mb-4">
-                            <div className="flex justify-between items-end mb-2">
-                                <span className="text-2xl font-bold">{formatCurrency(goal.currentAmount, currency)}</span>
-                                <span className="text-sm text-muted-foreground">of {formatCurrency(goal.targetAmount, currency)}</span>
+                            <div className="mb-2 space-y-1">
+                                <span className="text-2xl font-bold block truncate" title={formatCurrency(goal.currentAmount, currency)}>
+                                    {formatCurrency(goal.currentAmount, currency)}
+                                </span>
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Saved</span>
+                                    <span className="truncate max-w-[150px]" title={formatCurrency(goal.targetAmount, currency)}>
+                                        Target: {formatCurrency(goal.targetAmount, currency)}
+                                    </span>
+                                </div>
                             </div>
                             <Progress value={progress} className="h-2" />
                             <div className="mt-1 text-xs text-right text-muted-foreground">

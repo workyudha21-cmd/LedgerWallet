@@ -31,11 +31,15 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Plus } from "lucide-react"
+import { formatCurrencyInput } from "@/lib/utils"
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   type: z.string().min(1, "Please select an account type."),
-  initialBalance: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+  initialBalance: z.string().refine((val) => {
+    const num = parseInt(val.replace(/\D/g, ""), 10)
+    return !isNaN(num) && num >= 0
+  }, {
     message: "Balance must be a positive number.",
   }),
 })
@@ -63,7 +67,7 @@ export function AddAccountDialog() {
     addAccount({
         name: values.name,
         type: values.type as Account['type'],
-        balance: Number(values.initialBalance),
+        balance: parseInt(values.initialBalance.replace(/\D/g, ""), 10),
     }, user.uid)
     
     setOpen(false)
@@ -130,7 +134,11 @@ export function AddAccountDialog() {
                 <FormItem>
                   <FormLabel>Initial Balance</FormLabel>
                   <FormControl>
-                     <Input type="number" {...field} />
+                     <Input 
+                        placeholder="0" 
+                        {...field} 
+                        onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

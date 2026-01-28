@@ -29,11 +29,15 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useEffect } from "react"
+import { formatCurrencyInput } from "@/lib/utils"
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   type: z.string().min(1, "Please select an account type."),
-  balance: z.string().refine((val) => !isNaN(Number(val)), {
+  balance: z.string().refine((val) => {
+    const num = parseInt(val.replace(/\D/g, ""), 10)
+    return !isNaN(num)
+  }, {
     message: "Balance must be a valid number.",
   }),
 })
@@ -55,7 +59,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     defaultValues: {
       name: account.name,
       type: account.type, 
-      balance: String(account.balance),
+      balance: account.balance ? formatCurrencyInput(String(account.balance)) : "0",
     },
     mode: "onChange",
   })
@@ -65,7 +69,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     form.reset({
         name: account.name,
         type: account.type,
-        balance: String(account.balance)
+        balance: account.balance ? formatCurrencyInput(String(account.balance)) : "0"
     })
   }, [account, form])
 
@@ -75,7 +79,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     editAccount(account.id, {
         name: values.name,
         type: values.type as Account['type'],
-        balance: Number(values.balance),
+        balance: parseInt(values.balance.replace(/\D/g, ""), 10),
     })
     
     onOpenChange(false)
@@ -136,7 +140,11 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
                 <FormItem>
                   <FormLabel>Balance</FormLabel>
                   <FormControl>
-                     <Input type="number" {...field} />
+                     <Input 
+                        placeholder="0" 
+                        {...field} 
+                        onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

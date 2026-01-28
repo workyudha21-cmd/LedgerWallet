@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrencyInput } from "@/lib/utils"
 import { format } from "date-fns"
 import { CalendarIcon, Plus } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
@@ -38,7 +38,10 @@ import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from "@/lib/constants"
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
-  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+  amount: z.string().refine((val) => {
+      const num = parseInt(val.replace(/\D/g, ""), 10)
+      return !isNaN(num) && num > 0
+  }, {
       message: "Amount must be a positive number."
   }),
   type: z.enum(["income", "expense"]),
@@ -80,7 +83,7 @@ export function AddRecurringTransactionDialog() {
 
     addRecurringTransaction({
         name: values.name,
-        amount: Number(values.amount),
+        amount: parseInt(values.amount.replace(/\D/g, ""), 10),
         type: values.type,
         category: values.category,
         accountId: values.accountId,
@@ -132,7 +135,11 @@ export function AddRecurringTransactionDialog() {
                     <FormItem>
                     <FormLabel>Amount</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
+                        <Input 
+                            placeholder="0" 
+                            {...field} 
+                            onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                        />
                     </FormControl>
                     <FormMessage />
                     </FormItem>

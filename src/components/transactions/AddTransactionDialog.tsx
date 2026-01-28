@@ -22,7 +22,7 @@ export function AddTransactionDialog({ children }: { children: React.ReactNode }
 
     addTransaction({
       description: values.description,
-      amount: Number(values.amount),
+      amount: parseInt(values.amount.replace(/\D/g, ""), 10),
       type: values.type,
       category: values.category,
       accountId: values.accountId,

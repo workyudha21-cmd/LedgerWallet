@@ -22,13 +22,15 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
-import { cn } from "@/lib/utils"
 
 const formSchema = z.object({
   description: z.string().min(2, {
     message: "Description must be at least 2 characters.",
   }),
-  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+  amount: z.string().refine((val) => {
+    const num = parseInt(val.replace(/\D/g, ""), 10)
+    return !isNaN(num) && num > 0
+  }, {
     message: "Amount must be a positive number.",
   }),
   type: z.enum(["income", "expense"]),
@@ -45,6 +47,7 @@ interface TransactionFormProps {
   submitLabel?: string
 }
 
+import { formatCurrencyInput, cn } from "@/lib/utils"
 import { useTransactionStore } from "@/lib/store"
 
 // ... (previous imports)
@@ -144,7 +147,11 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
             <FormItem>
               <FormLabel>Amount</FormLabel>
               <FormControl>
-                <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                <Input 
+                    placeholder="0" 
+                    {...field} 
+                    onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
