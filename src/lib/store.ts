@@ -71,12 +71,23 @@ export interface RecurringTransaction {
   lastRunDate?: string
 }
 
+export interface FinancialGoal {
+  id: string
+  userId: string
+  name: string
+  targetAmount: number
+  currentAmount: number
+  deadline?: string
+  color?: string
+}
+
 interface TransactionState {
   transactions: Transaction[]
   categories: Category[]
   budgets: Budget[]
   accounts: Account[]
   recurringTransactions: RecurringTransaction[]
+  goals: FinancialGoal[]
   currency: 'IDR' | 'USD'
   loading: boolean
   setCurrency: (currency: 'IDR' | 'USD') => void
@@ -109,6 +120,13 @@ interface TransactionState {
   subscribeToBudgets: (userId: string) => () => void
   subscribeToAccounts: (userId: string) => () => void
   subscribeToRecurringTransactions: (userId: string) => () => void
+  
+  // Goals Actions
+  addGoal: (goal: Omit<FinancialGoal, 'id' | 'userId'>, userId: string) => Promise<void>
+  editGoal: (id: string, updates: Partial<Omit<FinancialGoal, 'id' | 'userId'>>) => Promise<void>
+  deleteGoal: (id: string) => Promise<void>
+  contributeToGoal: (goalId: string, accountId: string, amount: number, userId: string) => Promise<void>
+  subscribeToGoals: (userId: string) => () => void
 }
 
 export const useTransactionStore = create<TransactionState>()(
@@ -119,6 +137,7 @@ export const useTransactionStore = create<TransactionState>()(
       budgets: [],
       accounts: [],
       recurringTransactions: [],
+      goals: [],
       currency: 'IDR',
       loading: false,
 
@@ -499,6 +518,78 @@ export const useTransactionStore = create<TransactionState>()(
             set({ accounts })
         }, (error) => { console.error("Error fetching accounts: ", error) })
         return unsubscribe
+      },
+
+      // Goals Implementation
+      addGoal: async (goal, userId) => {
+          try {
+              await addDoc(collection(db, 'goals'), {
+                  ...goal,
+                  userId,
+                  createdAt: Timestamp.now()
+              })
+          } catch (e) { console.error("Error adding goal:", e) }
+      },
+
+      editGoal: async (id, updates) => {
+        try {
+            await updateDoc(doc(db, 'goals', id), updates)
+        } catch (e) { console.error("Error editing goal:", e) }
+      },
+
+      deleteGoal: async (id) => {
+        try {
+            await deleteDoc(doc(db, 'goals', id))
+        } catch (e) { console.error("Error deleting goal:", e) }
+      },
+
+      contributeToGoal: async (goalId, accountId, amount, userId) => {
+        try {
+            const { accounts, goals } = get()
+            const account = accounts.find(a => a.id === accountId)
+            const goal = goals.find(g => g.id === goalId)
+
+            if (!account) throw new Error("Account not found")
+            if (!goal) throw new Error("Goal not found")
+            if (account.balance < amount) throw new Error("Insufficient funds")
+
+            const batch = writeBatch(db)
+
+            // 1. Create Transaction (Expense)
+            const newTransRef = doc(collection(db, 'transactions'))
+            batch.set(newTransRef, {
+                amount,
+                type: 'expense',
+                category: 'Navigasi / Financial Goal', // Special category
+                description: `Contribution to ${goal.name}`,
+                date: new Date().toISOString(),
+                userId,
+                accountId,
+                createdAt: Timestamp.now()
+            })
+
+            // 2. Deduct from Account
+            const accountRef = doc(db, 'accounts', accountId)
+            batch.update(accountRef, { balance: account.balance - amount })
+
+            // 3. Add to Goal
+            const goalRef = doc(db, 'goals', goalId)
+            batch.update(goalRef, { currentAmount: goal.currentAmount + amount })
+
+            await batch.commit()
+
+        } catch (e) { 
+            console.error("Error contributing to goal:", e)
+            alert((e as Error).message)
+        }
+      },
+
+      subscribeToGoals: (userId) => {
+        const q = query(collection(db, 'goals'), where("userId", "==", userId))
+        return onSnapshot(q, (snapshot) => {
+            const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialGoal))
+            set({ goals })
+        }, (error) => { console.error("Error subscribing to goals:", error) })
       }
     }),
     {

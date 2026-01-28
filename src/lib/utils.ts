@@ -26,3 +26,9 @@ export function formatCompactNumber(number: number) {
     maximumFractionDigits: 1
   }).format(number)
 }
+
+export function formatCurrencyInput(value: string) {
+    const digits = value.replace(/\D/g, "")
+    if (!digits) return ""
+    return new Intl.NumberFormat('id-ID').format(Number(digits))
+}

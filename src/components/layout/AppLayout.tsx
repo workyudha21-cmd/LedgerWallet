@@ -1,5 +1,5 @@
-import { Outlet, Link } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock } from "lucide-react"
+import { Outlet, Link, useLocation } from "react-router-dom"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock, Target } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { useAuthStore } from "@/lib/auth-store"
@@ -13,6 +13,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   const { user } = useAuthStore()
+  const location = useLocation()
 
   const handleLogout = () => {
     auth.signOut()
@@ -34,7 +35,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       <nav className="space-y-2 flex-1">
         <Link
           to="/"
-          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/' ? 'bg-muted font-medium' : ''}`}
           onClick={onLinkClick}
         >
           <LayoutDashboard className="h-4 w-4" />
@@ -42,7 +43,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         </Link>
         <Link
           to="/transactions"
-          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/transactions' ? 'bg-muted font-medium' : ''}`}
           onClick={onLinkClick}
         >
           <Receipt className="h-4 w-4" />
@@ -50,7 +51,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         </Link>
         <Link
           to="/accounts"
-          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/accounts' ? 'bg-muted font-medium' : ''}`}
           onClick={onLinkClick}
         >
           <Wallet className="h-4 w-4" />
@@ -58,11 +59,19 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         </Link>
         <Link
           to="/recurring"
-          className="flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/recurring' ? 'bg-muted font-medium' : ''}`}
           onClick={onLinkClick}
         >
           <CalendarClock className="h-4 w-4" />
           Recurring
+        </Link>
+        <Link
+          to="/goals"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/goals' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <Target className="h-4 w-4" />
+          Goals
         </Link>
       </nav>
 
