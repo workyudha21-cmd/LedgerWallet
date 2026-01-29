@@ -21,23 +21,29 @@ import { useTransactionStore } from "@/lib/store"
 import { EXPENSE_CATEGORIES } from "@/lib/constants"
 import { useState } from "react"
 import { Plus, Trash } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatCurrencyInput } from "@/lib/utils"
 
 export function BudgetList() {
-  const { budgets, addBudget, removeBudget, currency } = useTransactionStore()
+  const { budgets, addBudget, removeBudget, currency, categories } = useTransactionStore()
   const user = useAuthStore((state) => state.user)
   const [open, setOpen] = useState(false)
   const [category, setCategory] = useState("")
   const [amount, setAmount] = useState("")
 
+  const customExpenses = categories
+    .filter(c => c.type === 'expense')
+    .map(c => c.name)
+
+  const allCategories = Array.from(new Set([...EXPENSE_CATEGORIES, ...customExpenses])).sort()
+
   const handleSave = async () => {
     if (!user || !category || !amount) return
 
     await addBudget({
-        category,
-        amount: Number(amount)
+      category,
+      amount: parseInt(amount.replace(/\D/g, ""), 10)
     }, user.uid)
-    
+
     setOpen(false)
     setCategory("")
     setAmount("")
@@ -68,7 +74,7 @@ export function BudgetList() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_CATEGORIES.map((cat) => (
+                    {allCategories.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
                       </SelectItem>
@@ -79,10 +85,9 @@ export function BudgetList() {
               <div className="grid gap-2">
                 <Label>Monthly Limit</Label>
                 <Input
-                  type="number"
-                  placeholder="e.g. 1000000"
+                  placeholder="e.g. 1.000.000"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => setAmount(formatCurrencyInput(e.target.value))}
                 />
               </div>
               <Button onClick={handleSave}>Save Budget</Button>
@@ -93,26 +98,26 @@ export function BudgetList() {
 
       <div className="grid gap-4">
         {budgets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No budgets set yet.</p>
+          <p className="text-sm text-muted-foreground">No budgets set yet.</p>
         ) : (
-            budgets.map((budget) => (
-                <div key={budget.id} className="flex items-center justify-between p-3 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div>
-                        <div className="font-medium">{budget.category}</div>
-                        <div className="text-sm text-muted-foreground">
-                            Limit: {formatCurrency(budget.amount, currency)}
-                        </div>
-                    </div>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => removeBudget(budget.id)}
-                    >
-                        <Trash className="h-4 w-4" />
-                    </Button>
+          budgets.map((budget) => (
+            <div key={budget.id} className="flex items-center justify-between p-3 border rounded-lg bg-card text-card-foreground shadow-sm">
+              <div>
+                <div className="font-medium">{budget.category}</div>
+                <div className="text-sm text-muted-foreground">
+                  Limit: {formatCurrency(budget.amount, currency)}
                 </div>
-            ))
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                onClick={() => removeBudget(budget.id)}
+              >
+                <Trash className="h-4 w-4" />
+              </Button>
+            </div>
+          ))
         )}
       </div>
     </div>

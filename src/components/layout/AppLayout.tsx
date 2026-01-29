@@ -1,9 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock, Target } from "lucide-react"
-import { ModeToggle } from "@/components/mode-toggle"
-import { CurrencyToggle } from "@/components/currency-toggle"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock, Target, ArrowRightLeft, PieChart, Settings } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
-import { CategoryManager } from "@/components/categories/CategoryManager"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { auth } from "@/lib/firebase"
@@ -23,14 +20,14 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <>
       <div className="flex items-center gap-3 mb-8 px-2">
-           <Avatar>
-              <AvatarImage src={user?.photoURL || ""} />
-              <AvatarFallback>{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
-           </Avatar>
-           <div className="flex flex-col overflow-hidden">
-              <span className="font-bold truncate">{user?.displayName || "User"}</span>
-              <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
-           </div>
+        <Avatar>
+          <AvatarImage src={user?.photoURL || ""} />
+          <AvatarFallback>{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
+        </Avatar>
+        <div className="flex flex-col overflow-hidden">
+          <span className="font-bold truncate">{user?.displayName || "User"}</span>
+          <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+        </div>
       </div>
       <nav className="space-y-2 flex-1">
         <Link
@@ -73,23 +70,37 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           <Target className="h-4 w-4" />
           Goals
         </Link>
+        <Link
+          to="/debts"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/debts' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <ArrowRightLeft className="h-4 w-4" />
+          Debts
+        </Link>
+        <Link
+          to="/budget"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/budget' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <PieChart className="h-4 w-4" />
+          Budget
+        </Link>
+        <Link
+          to="/settings"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/settings' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <Settings className="h-4 w-4" />
+          Settings
+        </Link>
       </nav>
 
       <div className="border-t pt-4 space-y-4">
-          <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground tracking-wider">PREFERENCES</span>
-          </div>
-          <div className="flex items-center gap-2">
-              <div className="flex-1">
-                  <CurrencyToggle />
-              </div>
-              <ModeToggle />
-          </div>
-          <CategoryManager />
-           <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-          </Button>
+        <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Log out
+        </Button>
       </div>
     </>
   )
@@ -109,27 +120,27 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden border-b p-4 flex items-center bg-card">
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="-ml-2">
-                        <Menu className="h-6 w-6" />
-                        <span className="sr-only">Open menu</span>
-                    </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-80 p-4">
-                    <VisuallyHidden>
-                        <SheetTitle>Menu</SheetTitle>
-                    </VisuallyHidden>
-                    <div className="flex flex-col h-full">
-                        <SidebarContent onLinkClick={() => setIsOpen(false)} />
-                    </div>
-                </SheetContent>
-            </Sheet>
-            <span className="ml-2 font-semibold">Ledger Wallet</span>
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="-ml-2">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-4">
+              <VisuallyHidden>
+                <SheetTitle>Menu</SheetTitle>
+              </VisuallyHidden>
+              <div className="flex flex-col h-full">
+                <SidebarContent onLinkClick={() => setIsOpen(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <span className="ml-2 font-semibold">Ledger Wallet</span>
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-8">
-            <Outlet />
+          <Outlet />
         </main>
       </div>
     </div>
