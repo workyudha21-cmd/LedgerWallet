@@ -44,6 +44,21 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
+function formatSignedAmount(value: string) {
+  const isNegative = value.trim().startsWith("-")
+  const formatted = formatCurrencyInput(value)
+  if (!formatted) return isNegative ? "-" : ""
+  return isNegative ? `-${formatted}` : formatted
+}
+
+function parseSignedAmount(value: string) {
+  const isNegative = value.trim().startsWith("-")
+  const digits = value.replace(/\D/g, "")
+  if (!digits) return 0
+  const amount = parseInt(digits, 10)
+  return isNegative ? -amount : amount
+}
+
 interface EditAccountDialogProps {
     account: Account
     open: boolean
@@ -59,7 +74,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     defaultValues: {
       name: account.name,
       type: account.type, 
-      balance: account.balance ? formatCurrencyInput(String(account.balance)) : "0",
+      balance: formatSignedAmount(String(account.balance ?? 0)),
     },
     mode: "onChange",
   })
@@ -69,7 +84,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     form.reset({
         name: account.name,
         type: account.type,
-        balance: account.balance ? formatCurrencyInput(String(account.balance)) : "0"
+        balance: formatSignedAmount(String(account.balance ?? 0))
     })
   }, [account, form])
 
@@ -79,7 +94,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     editAccount(account.id, {
         name: values.name,
         type: values.type as Account['type'],
-        balance: parseInt(values.balance.replace(/\D/g, ""), 10),
+        balance: parseSignedAmount(values.balance),
     })
     
     onOpenChange(false)
@@ -143,7 +158,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
                      <Input 
                         placeholder="0" 
                         {...field} 
-                        onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                        onChange={(e) => field.onChange(formatSignedAmount(e.target.value))}
                      />
                   </FormControl>
                   <FormMessage />

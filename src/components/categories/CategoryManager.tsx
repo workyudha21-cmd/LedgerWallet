@@ -28,12 +28,24 @@ export function CategoryManager() {
   
   const [newCatName, setNewCatName] = useState("")
   const [newCatType, setNewCatType] = useState<"income" | "expense">("expense")
+  const [error, setError] = useState("")
 
   const handleAdd = async () => {
-    if (!user || !newCatName.trim()) return
-    
+    const name = newCatName.trim()
+    if (!user || !name) return
+
+    const exists = categories.some(
+      (category) => category.name.toLowerCase() === name.toLowerCase() && category.type === newCatType
+    )
+
+    if (exists) {
+      setError("This category already exists.")
+      return
+    }
+
+    setError("")
     await addCategory({
-        name: newCatName,
+        name,
         type: newCatType
     }, user.uid)
     
@@ -63,7 +75,10 @@ export function CategoryManager() {
                     <Input 
                         id="catName" 
                         value={newCatName} 
-                        onChange={(e) => setNewCatName(e.target.value)} 
+                        onChange={(e) => {
+                            setNewCatName(e.target.value)
+                            setError("")
+                        }}
                         placeholder="e.g., Online Subscription"
                     />
                 </div>
@@ -71,7 +86,10 @@ export function CategoryManager() {
                     <Label>Type</Label>
                      <Select 
                         value={newCatType} 
-                        onValueChange={(v: "income" | "expense") => setNewCatType(v)}
+                        onValueChange={(v: "income" | "expense") => {
+                            setNewCatType(v)
+                            setError("")
+                        }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -86,6 +104,10 @@ export function CategoryManager() {
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
+
+            {error && (
+                <p className="text-xs text-destructive">{error}</p>
+            )}
 
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Your Categories</div>

@@ -1,46 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerOnCreate() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerOnUpdate() {
+      return isOwner() && request.resource.data.userId == request.auth.uid;
+    }
+
     // Transactions
     match /transactions/{transactionId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
-    
+
     // Categories
     match /categories/{categoryId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
 
     match /budgets/{budgetId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
 
     // Accounts
     match /accounts/{accountId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
 
     // Recurring Transactions
     match /recurring_transactions/{recurringId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
 
     // Financial Goals
     match /goals/{goalId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
 
     // Debts
     match /debts/{debtId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
     }
   }
 }

@@ -45,11 +45,11 @@ export function BudgetHealthWidget() {
         )
         .reduce((acc, t) => acc + t.amount, 0)
 
-    const percentage = Math.min((totalSpent / totalBudget) * 100, 100)
+    const rawPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
     const remaining = Math.max(0, totalBudget - totalSpent)
 
     const data = [
-        { name: "Spent", value: totalSpent, color: percentage > 100 ? "#ef4444" : percentage > 85 ? "#eab308" : "#22c55e" },
+        { name: "Spent", value: totalSpent, color: rawPercentage > 100 ? "#ef4444" : rawPercentage > 85 ? "#eab308" : "#22c55e" },
         { name: "Remaining", value: remaining, color: "#e2e8f0" }
     ]
 
@@ -86,7 +86,7 @@ export function BudgetHealthWidget() {
                 </div>
                 <div className="space-y-1">
                     <div className="text-2xl font-bold">
-                        {Math.round(percentage)}%
+                        {Math.round(rawPercentage)}%
                     </div>
                     <div className="text-xs text-muted-foreground">
                         {totalSpent > totalBudget ? (

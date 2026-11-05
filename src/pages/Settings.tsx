@@ -36,7 +36,7 @@ export function Settings() {
     }
 
     return (
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
             </div>
@@ -107,7 +107,7 @@ export function Settings() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This action cannot be undone. This will permanently delete your transactions, budgets, goals, debts, and account balances from our servers.
+                                                This action cannot be undone. This will permanently delete your transactions, accounts, budgets, recurring transactions, goals, and debts from our servers. Your custom categories will be kept.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>

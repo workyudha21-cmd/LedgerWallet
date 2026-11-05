@@ -7,7 +7,9 @@ import { Recurring } from "./pages/Recurring"
 import { Goals } from "./pages/Goals"
 import { Debts } from "./pages/Debts"
 import { Budget } from "./pages/Budget"
+import { Reports } from "./pages/Reports"
 import { Settings } from "./pages/Settings"
+import { NotFound } from "./pages/NotFound"
 import { ThemeProvider } from "./components/theme-provider"
 import { Login } from "./pages/Login"
 import { useAuthStore } from "./lib/auth-store"
@@ -30,50 +32,45 @@ function App() {
 
 
   useEffect(() => {
-    let unsubscribeTransactions: () => void
-    let unsubscribeCategories: () => void
-    let unsubscribeBudgets: () => void
-    let unsubscribeAccounts: () => void
-    let unsubscribeRecurringTransactions: () => void
-    let unsubscribeGoals: () => void
-    let unsubscribeDebts: () => void
+    let unsubscribers: Array<() => void> = []
+
+    const cleanup = () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe())
+      unsubscribers = []
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      // Cleanup previous subscriptions if they exist to prevent permission errors on logout
-      if (unsubscribeTransactions) unsubscribeTransactions()
-      if (unsubscribeCategories) unsubscribeCategories()
-      if (unsubscribeBudgets) unsubscribeBudgets()
-      if (unsubscribeAccounts) unsubscribeAccounts()
-
+      cleanup()
       setUser(user)
       setLoading(false)
 
+      // Clear the previous user's data before loading the current user's snapshot
+      useTransactionStore.setState({
+        transactions: [],
+        categories: [],
+        budgets: [],
+        accounts: [],
+        recurringTransactions: [],
+        goals: [],
+        debts: []
+      })
+
       if (user) {
-        // Start listening to Firestore
-        unsubscribeTransactions = subscribeToTransactions(user.uid)
-        unsubscribeCategories = subscribeToCategories(user.uid)
-        unsubscribeBudgets = subscribeToBudgets(user.uid)
-        unsubscribeAccounts = subscribeToAccounts(user.uid)
-        // Also subscribe to recurring (which triggers the processing loop)
-        // Also subscribe to recurring (which triggers the processing loop)
-        unsubscribeRecurringTransactions = subscribeToRecurringTransactions(user.uid)
-        unsubscribeGoals = subscribeToGoals(user.uid)
-        unsubscribeDebts = subscribeToDebts(user.uid)
-      } else {
-        // Clear transactions if logged out (optional but good for security)
-        useTransactionStore.setState({ transactions: [], categories: [], budgets: [], accounts: [] })
+        unsubscribers = [
+          subscribeToTransactions(user.uid),
+          subscribeToCategories(user.uid),
+          subscribeToBudgets(user.uid),
+          subscribeToAccounts(user.uid),
+          subscribeToRecurringTransactions(user.uid),
+          subscribeToGoals(user.uid),
+          subscribeToDebts(user.uid)
+        ]
       }
     })
 
     return () => {
       unsubscribeAuth()
-      if (unsubscribeTransactions) unsubscribeTransactions()
-      if (unsubscribeCategories) unsubscribeCategories()
-      if (unsubscribeBudgets) unsubscribeBudgets()
-      if (unsubscribeAccounts) unsubscribeAccounts()
-      if (unsubscribeRecurringTransactions) unsubscribeRecurringTransactions()
-      if (unsubscribeGoals) unsubscribeGoals()
-      if (unsubscribeDebts) unsubscribeDebts()
+      cleanup()
     }
   }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts])
 
@@ -82,15 +79,25 @@ function App() {
   const { categories, seedDefaults } = useTransactionStore()
   const user = useAuthStore(s => s.user)
   useEffect(() => {
-    if (user && categories.length === 0 && !loading) {
-      // Use a timeout to ensure real-time listener had a chance to fire
-      const timer = setTimeout(() => {
-        if (useTransactionStore.getState().categories.length === 0) {
-          seedDefaults(user.uid)
-        }
-      }, 2000)
-      return () => clearTimeout(timer)
+    if (!user || loading) return
+
+    const seedKey = `ledger-defaults-seeded:${user.uid}`
+
+    if (categories.length > 0) {
+      localStorage.setItem(seedKey, "true")
+      return
     }
+
+    if (localStorage.getItem(seedKey)) return
+
+    // Use a timeout to ensure real-time listener had a chance to fire
+    const timer = setTimeout(async () => {
+      if (useTransactionStore.getState().categories.length === 0) {
+        await seedDefaults(user.uid)
+        localStorage.setItem(seedKey, "true")
+      }
+    }, 2000)
+    return () => clearTimeout(timer)
   }, [user, categories.length, loading, seedDefaults])
 
   if (loading) return null
@@ -112,8 +119,10 @@ function App() {
             <Route path="goals" element={<Goals />} />
             <Route path="debts" element={<Debts />} />
             <Route path="budget" element={<Budget />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

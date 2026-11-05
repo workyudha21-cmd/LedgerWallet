@@ -11,11 +11,16 @@ export function OverviewChart() {
   const data = Array.from({ length: 6 }).map((_, i) => {
     const date = subMonths(new Date(), i)
     const monthStr = format(date, "MMM")
-    const monthYear = format(date, "yyyy-MM")
 
-    const monthTransactions = transactions.filter(t => t.date.startsWith(monthYear))
+    const monthTransactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date)
+        return transactionDate.getFullYear() === date.getFullYear() &&
+            transactionDate.getMonth() === date.getMonth()
+    })
     const total = monthTransactions.reduce((acc, t) => {
-        return acc + (t.type === 'income' ? t.amount : -t.amount)
+        if (t.type === 'income') return acc + t.amount
+        if (t.type === 'expense') return acc - t.amount
+        return acc
     }, 0)
 
     return {

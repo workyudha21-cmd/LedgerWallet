@@ -21,7 +21,7 @@ import { cn, formatCurrencyInput } from "@/lib/utils"
 import { format } from "date-fns"
 import { CalendarIcon, Plus } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
-import { useTransactionStore } from "@/lib/store"
+import { useTransactionStore, type RecurringTransaction } from "@/lib/store"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -53,21 +53,26 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function AddRecurringTransactionDialog() {
+interface AddRecurringTransactionDialogProps {
+  recurring?: RecurringTransaction
+  trigger?: React.ReactNode
+}
+
+export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurringTransactionDialogProps) {
   const [open, setOpen] = useState(false)
   const user = useAuthStore((state) => state.user)
-  const { addRecurringTransaction, accounts, categories: customCategories } = useTransactionStore()
+  const { addRecurringTransaction, editRecurringTransaction, accounts, categories: customCategories } = useTransactionStore()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      amount: "",
-      type: "expense",
-      category: "",
-      accountId: "",
-      frequency: "monthly",
-      startDate: new Date(),
+      name: recurring?.name || "",
+      amount: recurring ? formatCurrencyInput(String(recurring.amount)) : "",
+      type: recurring?.type || "expense",
+      category: recurring?.category || "",
+      accountId: recurring?.accountId || "",
+      frequency: recurring?.frequency || "monthly",
+      startDate: recurring ? new Date(recurring.nextRunDate) : new Date(),
     },
     mode: "onChange"
   })
@@ -78,10 +83,10 @@ export function AddRecurringTransactionDialog() {
   const relevantCustomCategories = customCategories.filter(c => c.type === type).map(c => c.name)
   const allCategories = Array.from(new Set([...defaultCategories, ...relevantCustomCategories]))
 
-  function onSubmit(values: FormValues) {
+  async function onSubmit(values: FormValues) {
     if (!user) return
 
-    addRecurringTransaction({
+    const recurringData = {
         name: values.name,
         amount: parseInt(values.amount.replace(/\D/g, ""), 10),
         type: values.type,
@@ -89,26 +94,50 @@ export function AddRecurringTransactionDialog() {
         accountId: values.accountId,
         frequency: values.frequency,
         startDate: values.startDate.toISOString(),
-        nextRunDate: values.startDate.toISOString(), // First run is start date
-        active: true,
-    }, user.uid)
+        nextRunDate: values.startDate.toISOString()
+    }
+
+    if (recurring) {
+        await editRecurringTransaction(recurring.id, recurringData)
+        setOpen(false)
+        return
+    }
+
+    await addRecurringTransaction({ ...recurringData, active: true }, user.uid)
     
     setOpen(false)
     form.reset()
   }
 
+  function resetForm() {
+    form.reset({
+      name: recurring?.name || "",
+      amount: recurring ? formatCurrencyInput(String(recurring.amount)) : "",
+      type: recurring?.type || "expense",
+      category: recurring?.category || "",
+      accountId: recurring?.accountId || "",
+      frequency: recurring?.frequency || "monthly",
+      startDate: recurring ? new Date(recurring.nextRunDate) : new Date(),
+    })
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen)
+      if (isOpen) resetForm()
+    }}>
       <DialogTrigger asChild>
-        <Button>
-            <Plus className="mr-2 h-4 w-4" /> Add Recurring
-        </Button>
+        {trigger || (
+          <Button>
+              <Plus className="mr-2 h-4 w-4" /> Add Recurring
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Recurring Transaction</DialogTitle>
+          <DialogTitle>{recurring ? "Edit Recurring Transaction" : "Add Recurring Transaction"}</DialogTitle>
           <DialogDescription>
-            Create a subscription or scheduled payment.
+            {recurring ? "Update this scheduled payment." : "Create a subscription or scheduled payment."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -151,7 +180,10 @@ export function AddRecurringTransactionDialog() {
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={(value) => {
+                        field.onChange(value)
+                        form.setValue("category", "")
+                    }} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue />
@@ -285,7 +317,7 @@ export function AddRecurringTransactionDialog() {
               )}
             />
 
-            <Button type="submit" className="w-full">Create Recurring</Button>
+            <Button type="submit" className="w-full">{recurring ? "Save Changes" : "Create Recurring"}</Button>
           </form>
         </Form>
       </DialogContent>

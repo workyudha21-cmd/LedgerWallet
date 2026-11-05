@@ -45,8 +45,10 @@ export function RecentTransactions() {
                 <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.description}</TableCell>
                     <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
-                    <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                    {t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}
+                    <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {t.type === 'transfer'
+                        ? formatCurrency(Math.abs(t.amount), currency)
+                        : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                     </TableCell>
                     <TableCell>
                         <TransactionActions transaction={t} />

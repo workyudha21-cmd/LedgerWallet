@@ -3,20 +3,34 @@ import { auth, googleProvider } from "@/lib/firebase"
 import { signInWithPopup } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/lib/auth-store"
-import { Wallet, CheckCircle2 } from "lucide-react"
+import { Wallet, CheckCircle2, Loader2 } from "lucide-react"
 import { AnimatedBackground } from "@/components/ui/animated-background"
+import { useEffect, useState } from "react"
 
 export function Login() {
   const navigate = useNavigate()
   const setUser = useAuthStore((state) => state.setUser)
+  const user = useAuthStore((state) => state.user)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (user) navigate("/", { replace: true })
+  }, [user, navigate])
 
   const handleLogin = async () => {
+    setLoading(true)
+    setError("")
+
     try {
       const result = await signInWithPopup(auth, googleProvider)
       setUser(result.user)
       navigate("/")
     } catch (error) {
       console.error("Login failed:", error)
+      setError("Sign-in failed. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -41,19 +55,27 @@ export function Login() {
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Create an account
+              Welcome back
             </h1>
             <p className="text-sm text-muted-foreground">
-              Enter your email below to create your account
+              Sign in with your Google account to continue
             </p>
           </div>
           <div className="grid gap-6">
-            <Button variant="outline" type="button" onClick={handleLogin} className="py-6">
-              <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-              </svg>
-              Continue with Google
+            <Button variant="outline" type="button" onClick={handleLogin} className="py-6" disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                  <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                </svg>
+              )}
+              {loading ? "Signing in..." : "Continue with Google"}
             </Button>
+
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

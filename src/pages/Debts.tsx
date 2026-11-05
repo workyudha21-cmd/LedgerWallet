@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTransactionStore } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
 // import { format } from "date-fns"
-import { Trash, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from "lucide-react"
+import { Pencil, Trash, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -70,14 +70,24 @@ export function Debts() {
                             )}
                         </div>
                         {!isHistory && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
-                                onClick={() => setDeleteId(debt.id)}
-                            >
-                                <Trash className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                                <AddDebtDialog
+                                    debt={debt}
+                                    trigger={
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground">
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                    }
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+                                    onClick={() => setDeleteId(debt.id)}
+                                >
+                                    <Trash className="h-4 w-4" />
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </CardHeader>

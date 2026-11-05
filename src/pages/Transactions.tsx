@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
 import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { AddTransactionDialog } from "@/components/transactions/AddTransactionDialog"
 import { TransactionActions } from "@/components/transactions/TransactionActions"
 import { ExportButton } from "@/components/common/ExportButton"
@@ -19,11 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react"
 import { formatCurrency } from "@/lib/utils"
 
+const PAGE_SIZE = 20
+
 export function Transactions() {
-  const { transactions, currency } = useTransactionStore()
+  const { transactions, currency, accounts } = useTransactionStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all") // simplified date filter (all, this month, last month)
+  const [page, setPage] = useState(1)
 
   const filteredTransactions = transactions.filter((t) => {
     const matchesSearch = (t.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
@@ -45,6 +48,13 @@ export function Transactions() {
     
     return matchesSearch && matchesType && matchesDate
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const getAccountName = (accountId?: string) =>
+    accounts.find((account) => account.id === accountId)?.name || "-"
 
   // ... (exportCSV function) 
 
@@ -68,11 +78,17 @@ export function Transactions() {
         <Input 
             placeholder="Search description or category..." 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+                setSearchTerm(e.target.value)
+                setPage(1)
+            }}
             className="w-full md:w-[300px]"
         />
         <div className="flex gap-2 w-full md:w-auto">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={typeFilter} onValueChange={(value) => {
+                setTypeFilter(value)
+                setPage(1)
+            }}>
                 <SelectTrigger className="w-full md:w-[150px]">
                     <SelectValue placeholder="All Types" />
                 </SelectTrigger>
@@ -80,9 +96,13 @@ export function Transactions() {
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="income">Income</SelectItem>
                     <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
                 </SelectContent>
             </Select>
-             <Select value={dateFilter} onValueChange={setDateFilter}>
+             <Select value={dateFilter} onValueChange={(value) => {
+                setDateFilter(value)
+                setPage(1)
+            }}>
                 <SelectTrigger className="w-full md:w-[150px]">
                     <SelectValue placeholder="All Dates" />
                 </SelectTrigger>
@@ -116,24 +136,25 @@ export function Transactions() {
             <TableBody>
               {filteredTransactions.length === 0 ? (
                   <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                           No transactions found matching your filters.
                       </TableCell>
                   </TableRow>
               ) : (
-                  filteredTransactions.map((t) => (
+                  paginatedTransactions.map((t) => (
                   <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.description}</TableCell>
                       <TableCell>{t.category}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">
-                        {transactions.find(tr => tr.id === t.id)?.accountId 
-                            ? useTransactionStore.getState().accounts.find(a => a.id === t.accountId)?.name || '-' 
-                            : '-'
-                        }
+                        {t.type === 'transfer'
+                            ? `${getAccountName(t.accountId)} → ${getAccountName(t.toAccountId)}`
+                            : getAccountName(t.accountId)}
                       </TableCell>
                       <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
-                      <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                      {t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}
+                      <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {t.type === 'transfer'
+                          ? formatCurrency(Math.abs(t.amount), currency)
+                          : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                       </TableCell>
                       <TableCell>
                           <TransactionActions transaction={t} />
@@ -156,13 +177,15 @@ export function Transactions() {
                 No transactions found matching your filters.
             </div>
         ) : (
-            filteredTransactions.map((t) => (
+            paginatedTransactions.map((t) => (
                 <Card key={t.id} className="overflow-hidden">
                     <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
                             <div className="font-bold truncate pr-2">{t.description}</div>
-                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                                {t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}
+                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {t.type === 'transfer'
+                                    ? formatCurrency(Math.abs(t.amount), currency)
+                                    : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                             </div>
                         </div>
                         <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
@@ -180,6 +203,33 @@ export function Transactions() {
             ))
         )}
       </div>
+
+      {filteredTransactions.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredTransactions.length)} of {filteredTransactions.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

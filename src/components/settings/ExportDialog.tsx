@@ -19,7 +19,7 @@ import { format } from "date-fns"
 export function ExportDialog() {
     const [range, setRange] = useState("all")
     const [open, setOpen] = useState(false)
-    const { transactions, currency } = useTransactionStore()
+    const { transactions, currency, accounts } = useTransactionStore()
 
     const getFilteredTransactions = () => {
         const now = new Date()
@@ -51,7 +51,9 @@ export function ExportDialog() {
             t.type,
             t.category,
             t.amount,
-            t.accountId || "N/A",
+            t.type === 'transfer'
+                ? `${accounts.find(account => account.id === t.accountId)?.name || "N/A"} → ${accounts.find(account => account.id === t.toAccountId)?.name || "N/A"}`
+                : accounts.find(account => account.id === t.accountId)?.name || "N/A",
             `"${(t.description || "").replace(/"/g, '""')}"` // Escape quotes
         ])
 

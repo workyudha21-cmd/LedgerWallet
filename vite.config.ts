@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['pwa-192x192.png', 'pwa-512x512.png', 'grid.svg'],
       manifest: {
         name: 'Ledger Wallet',
         short_name: 'LedgerWallet',
@@ -33,6 +33,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          'chart-vendor': ['recharts'],
+          'pdf-vendor': ['jspdf', 'jspdf-autotable'],
+        },
+      },
     },
   },
 })

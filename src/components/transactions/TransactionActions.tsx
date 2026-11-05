@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { type Transaction, useTransactionStore } from "@/lib/store"
+import { formatCurrencyInput } from "@/lib/utils"
 import { TransactionForm, type TransactionFormValues } from "./TransactionForm"
 
 interface TransactionActionsProps {
@@ -37,6 +38,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
   
   const editTransaction = useTransactionStore((state) => state.editTransaction)
   const removeTransaction = useTransactionStore((state) => state.removeTransaction)
+  const isLinked = Boolean(transaction.goalId || transaction.debtId) || transaction.type === 'transfer'
 
   function onConfirmDelete() {
     removeTransaction(transaction.id)
@@ -46,9 +48,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
   function onEditSubmit(values: TransactionFormValues) {
     editTransaction(transaction.id, {
         description: values.description,
-        amount: Number(values.amount),
+        amount: parseInt(values.amount.replace(/\D/g, ""), 10),
         type: values.type,
         category: values.category,
+        accountId: values.accountId,
         date: values.date.toISOString(),
     })
     setOpenEdit(false)
@@ -65,10 +68,12 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setOpenEdit(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit
-          </DropdownMenuItem>
+          {!isLinked && (
+            <DropdownMenuItem onClick={() => setOpenEdit(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => setOpenDelete(true)} className="text-red-600">
             <Trash className="mr-2 h-4 w-4" />
             Delete
@@ -84,9 +89,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           <TransactionForm 
             defaultValues={{
                 description: transaction.description,
-                amount: String(transaction.amount),
-                type: transaction.type,
+                amount: formatCurrencyInput(String(transaction.amount)),
+                type: transaction.type === 'transfer' ? 'expense' : transaction.type,
                 category: transaction.category,
+                accountId: transaction.accountId,
                 date: new Date(transaction.date),
             }} 
             onSubmit={onEditSubmit} 
@@ -100,7 +106,13 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the transaction.
+              {transaction.goalId
+                ? "This will permanently delete the transaction and reduce the linked goal's saved amount."
+                : transaction.debtId
+                  ? "This will permanently delete the transaction and restore the linked debt's remaining amount."
+                  : transaction.type === 'transfer'
+                    ? "This will delete the transfer and restore both account balances."
+                    : "This action cannot be undone. This will permanently delete the transaction."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

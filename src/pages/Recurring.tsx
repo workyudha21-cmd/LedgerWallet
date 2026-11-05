@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTransactionStore } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
 import { format } from "date-fns"
-import { CalendarClock, Play, Pause, Trash, AlertCircle } from "lucide-react"
+import { CalendarClock, Pencil, Play, Pause, Trash, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "../components/ui/badge"
 import {
@@ -92,6 +92,14 @@ export function Recurring() {
                             {item.active ? <Pause className="h-4 w-4 mr-1"/> : <Play className="h-4 w-4 mr-1"/>}
                             {item.active ? 'Pause' : 'Resume'}
                         </Button>
+                        <AddRecurringTransactionDialog
+                            recurring={item}
+                            trigger={
+                                <Button variant="outline" size="sm">
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            }
+                        />
                         <Button 
                             variant="destructive" 
                             size="sm"

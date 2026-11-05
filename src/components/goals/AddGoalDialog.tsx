@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { useTransactionStore } from "@/lib/store"
+import { useTransactionStore, type FinancialGoal } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -39,17 +39,22 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function AddGoalDialog() {
+interface AddGoalDialogProps {
+  goal?: FinancialGoal
+  trigger?: React.ReactNode
+}
+
+export function AddGoalDialog({ goal, trigger }: AddGoalDialogProps) {
   const [open, setOpen] = useState(false)
-  const { addGoal } = useTransactionStore()
+  const { addGoal, editGoal } = useTransactionStore()
   const user = useAuthStore((state) => state.user)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      targetAmount: "",
-      deadline: undefined
+      name: goal?.name || "",
+      targetAmount: goal ? formatCurrencyInput(String(goal.targetAmount)) : "",
+      deadline: goal?.deadline ? new Date(goal.deadline) : undefined
     },
   })
 
@@ -57,31 +62,49 @@ export function AddGoalDialog() {
     if (!user) return
     
     const amount = parseInt(values.targetAmount.replace(/\D/g, ""), 10)
-    
-    await addGoal({
+    const goalData = {
       name: values.name,
       targetAmount: amount,
-      currentAmount: 0,
-      deadline: values.deadline ? values.deadline.toISOString() : undefined,
-    }, user.uid)
-    
+      deadline: values.deadline ? values.deadline.toISOString() : null,
+    }
+
+    if (goal) {
+      await editGoal(goal.id, goalData)
+      setOpen(false)
+      return
+    }
+
+    await addGoal({ ...goalData, currentAmount: 0 }, user.uid)
     setOpen(false)
     form.reset()
   }
 
+  function resetForm() {
+    form.reset({
+      name: goal?.name || "",
+      targetAmount: goal ? formatCurrencyInput(String(goal.targetAmount)) : "",
+      deadline: goal?.deadline ? new Date(goal.deadline) : undefined,
+    })
+  }
+
   return (
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen)
+        if (isOpen) resetForm()
+      }}>
         <DialogTrigger asChild>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Goal
-          </Button>
+          {trigger || (
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Goal
+            </Button>
+          )}
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Create Financial Goal</DialogTitle>
+            <DialogTitle>{goal ? "Edit Financial Goal" : "Create Financial Goal"}</DialogTitle>
             <DialogDescription>
-              Set a target for your savings.
+              {goal ? "Update your savings target." : "Set a target for your savings."}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -157,7 +180,7 @@ export function AddGoalDialog() {
                     </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Create Goal</Button>
+              <Button type="submit" className="w-full">{goal ? "Save Changes" : "Create Goal"}</Button>
             </form>
           </Form>
         </DialogContent>

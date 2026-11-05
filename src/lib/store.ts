@@ -14,11 +14,14 @@ import {
     Timestamp,
     getDoc,
     getDocs,
-    writeBatch
+    writeBatch,
+    increment,
+    runTransaction
 } from 'firebase/firestore'
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, ACCOUNT_TYPES } from './constants'
 
 export type TransactionType = 'income' | 'expense'
+export type TransactionKind = TransactionType | 'transfer'
 
 export interface Account {
     id: string
@@ -32,12 +35,15 @@ export interface Account {
 export interface Transaction {
     id: string
     amount: number
-    type: TransactionType
+    type: TransactionKind
     category: string
     description?: string
     date: string
     userId: string
     accountId: string
+    toAccountId?: string
+    goalId?: string
+    debtId?: string
 }
 
 export type TransactionFormValues = Omit<Transaction, 'id' | 'userId'>
@@ -78,7 +84,7 @@ export interface FinancialGoal {
     name: string
     targetAmount: number
     currentAmount: number
-    deadline?: string
+    deadline?: string | null
     color?: string
 }
 
@@ -89,10 +95,10 @@ export interface Debt {
     personName: string
     totalAmount: number
     remainingAmount: number
-    dueDate?: string // ISO string
+    dueDate?: string | null // ISO string
     description?: string
     status: 'active' | 'paid'
-    createdAt: any
+    createdAt: Timestamp
 }
 
 interface TransactionState {
@@ -109,6 +115,13 @@ interface TransactionState {
 
     // Async Actions
     addTransaction: (transaction: TransactionFormValues, userId: string) => Promise<void>
+    transferBetweenAccounts: (transfer: {
+        fromAccountId: string
+        toAccountId: string
+        amount: number
+        date: string
+        description?: string
+    }, userId: string) => Promise<void>
     removeTransaction: (id: string) => Promise<void>
     editTransaction: (id: string, updates: Partial<TransactionFormValues>) => Promise<void>
 
@@ -154,6 +167,26 @@ interface TransactionState {
     resetData: (userId: string) => Promise<void>
 }
 
+let isProcessingRecurring = false
+
+function getNextRunDate(date: Date, frequency: RecurringTransaction['frequency']): Date {
+    const next = new Date(date)
+    switch (frequency) {
+        case 'daily': next.setDate(next.getDate() + 1); break
+        case 'weekly': next.setDate(next.getDate() + 7); break
+        case 'monthly': {
+            const day = next.getDate()
+            next.setDate(1)
+            next.setMonth(next.getMonth() + 1)
+            const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+            next.setDate(Math.min(day, daysInMonth))
+            break
+        }
+        case 'yearly': next.setFullYear(next.getFullYear() + 1); break
+    }
+    return next
+}
+
 export const useTransactionStore = create<TransactionState>()(
     persist(
         (set, get) => ({
@@ -187,14 +220,8 @@ export const useTransactionStore = create<TransactionState>()(
                         const accountSnap = await getDoc(accountRef)
 
                         if (accountSnap.exists()) {
-                            const currentBalance = accountSnap.data().balance || 0
-                            let newBalance = currentBalance
-                            if (formData.type === 'income') {
-                                newBalance += formData.amount
-                            } else {
-                                newBalance -= formData.amount
-                            }
-                            batch.update(accountRef, { balance: newBalance })
+                            const delta = formData.type === 'income' ? formData.amount : -formData.amount
+                            batch.update(accountRef, { balance: increment(delta) })
                         }
                     }
 
@@ -203,6 +230,36 @@ export const useTransactionStore = create<TransactionState>()(
                     console.error("Error adding transaction: ", error)
                     alert(`Failed to save transaction: ${(error as Error).message}`)
                 }
+            },
+
+            transferBetweenAccounts: async (transfer, userId) => {
+                const { accounts } = get()
+                const from = accounts.find(a => a.id === transfer.fromAccountId)
+                const to = accounts.find(a => a.id === transfer.toAccountId)
+
+                if (!from || !to) throw new Error("Account not found")
+                if (from.id === to.id) throw new Error("Source and destination accounts must be different")
+                if (transfer.amount <= 0) throw new Error("Transfer amount must be greater than 0")
+                if (from.balance < transfer.amount) throw new Error("Insufficient funds in source account")
+
+                const batch = writeBatch(db)
+                const newTransRef = doc(collection(db, 'transactions'))
+                batch.set(newTransRef, {
+                    amount: transfer.amount,
+                    type: 'transfer',
+                    category: 'Transfer',
+                    description: transfer.description || `Transfer ${from.name} to ${to.name}`,
+                    date: transfer.date,
+                    userId,
+                    accountId: transfer.fromAccountId,
+                    toAccountId: transfer.toAccountId,
+                    createdAt: Timestamp.now()
+                })
+
+                batch.update(doc(db, 'accounts', transfer.fromAccountId), { balance: increment(-transfer.amount) })
+                batch.update(doc(db, 'accounts', transfer.toAccountId), { balance: increment(transfer.amount) })
+
+                await batch.commit()
             },
 
             removeTransaction: async (id) => {
@@ -217,17 +274,38 @@ export const useTransactionStore = create<TransactionState>()(
                         const accountRef = doc(db, 'accounts', trans.accountId)
                         const accountSnap = await getDoc(accountRef)
                         if (accountSnap.exists()) {
-                            const currentBalance = accountSnap.data().balance || 0
-                            let newBalance = currentBalance
-                            // Revert logic
-                            if (trans.type === 'income') {
-                                newBalance -= trans.amount
-                            } else {
-                                newBalance += trans.amount
-                            }
-                            batch.update(accountRef, { balance: newBalance })
+                            const delta = trans.type === 'income' ? -trans.amount : trans.amount
+                            batch.update(accountRef, { balance: increment(delta) })
                         }
                     }
+
+                    if (trans.toAccountId) {
+                        const toAccountRef = doc(db, 'accounts', trans.toAccountId)
+                        const toAccountSnap = await getDoc(toAccountRef)
+                        if (toAccountSnap.exists()) {
+                            batch.update(toAccountRef, { balance: increment(-trans.amount) })
+                        }
+                    }
+
+                    if (trans.goalId) {
+                        const goalRef = doc(db, 'goals', trans.goalId)
+                        const goalSnap = await getDoc(goalRef)
+                        if (goalSnap.exists()) {
+                            batch.update(goalRef, { currentAmount: increment(-trans.amount) })
+                        }
+                    }
+
+                    if (trans.debtId) {
+                        const debtRef = doc(db, 'debts', trans.debtId)
+                        const debtSnap = await getDoc(debtRef)
+                        if (debtSnap.exists()) {
+                            batch.update(debtRef, {
+                                remainingAmount: increment(trans.amount),
+                                status: 'active'
+                            })
+                        }
+                    }
+
                     await batch.commit()
                 } catch (error) {
                     console.error("Error deleting transaction: ", error)
@@ -251,47 +329,33 @@ export const useTransactionStore = create<TransactionState>()(
                         oldTrans.accountId !== newTrans.accountId
 
                     if (impactChanged) {
-                        const accountsToUpdate = new Map<string, number>()
+                        const oldDelta = oldTrans.type === 'income' ? -oldTrans.amount : oldTrans.amount
+                        const newDelta = newTrans.type === 'income' ? newTrans.amount : -newTrans.amount
 
-                        // Get old account data
-                        if (oldTrans.accountId) {
-                            const oldAccRef = doc(db, 'accounts', oldTrans.accountId)
-                            const oldAccSnap = await getDoc(oldAccRef)
-                            if (oldAccSnap.exists()) {
-                                accountsToUpdate.set(oldTrans.accountId, oldAccSnap.data().balance)
+                        if (oldTrans.accountId && oldTrans.accountId === newTrans.accountId) {
+                            const delta = oldDelta + newDelta
+                            if (delta !== 0) {
+                                const accountRef = doc(db, 'accounts', oldTrans.accountId)
+                                const accountSnap = await getDoc(accountRef)
+                                if (accountSnap.exists()) {
+                                    batch.update(accountRef, { balance: increment(delta) })
+                                }
                             }
-                        }
-
-                        // Get new account data if different and not already fetched
-                        if (newTrans.accountId && newTrans.accountId !== oldTrans.accountId) {
-                            if (!accountsToUpdate.has(newTrans.accountId)) {
+                        } else {
+                            if (oldTrans.accountId) {
+                                const oldAccRef = doc(db, 'accounts', oldTrans.accountId)
+                                const oldAccSnap = await getDoc(oldAccRef)
+                                if (oldAccSnap.exists()) {
+                                    batch.update(oldAccRef, { balance: increment(oldDelta) })
+                                }
+                            }
+                            if (newTrans.accountId) {
                                 const newAccRef = doc(db, 'accounts', newTrans.accountId)
                                 const newAccSnap = await getDoc(newAccRef)
                                 if (newAccSnap.exists()) {
-                                    accountsToUpdate.set(newTrans.accountId, newAccSnap.data().balance)
+                                    batch.update(newAccRef, { balance: increment(newDelta) })
                                 }
                             }
-                        }
-
-                        // Revert Old
-                        if (oldTrans.accountId && accountsToUpdate.has(oldTrans.accountId)) {
-                            let bal = accountsToUpdate.get(oldTrans.accountId)!
-                            if (oldTrans.type === 'income') bal -= oldTrans.amount
-                            else bal += oldTrans.amount
-                            accountsToUpdate.set(oldTrans.accountId, bal)
-                        }
-
-                        // Apply New
-                        if (newTrans.accountId && accountsToUpdate.has(newTrans.accountId)) {
-                            let bal = accountsToUpdate.get(newTrans.accountId)!
-                            if (newTrans.type === 'income') bal += newTrans.amount
-                            else bal -= newTrans.amount
-                            accountsToUpdate.set(newTrans.accountId, bal)
-                        }
-
-                        // Update Batch
-                        for (const [accId, bal] of accountsToUpdate.entries()) {
-                            batch.update(doc(db, 'accounts', accId), { balance: bal })
                         }
                     }
                     await batch.commit()
@@ -419,64 +483,72 @@ export const useTransactionStore = create<TransactionState>()(
             },
 
             processRecurringTransactions: async (userId) => {
-                const { recurringTransactions, accounts } = get()
-                const now = new Date()
-                const due = recurringTransactions.filter(rt => rt.active && new Date(rt.nextRunDate) <= now)
+                if (isProcessingRecurring) return
+                isProcessingRecurring = true
 
-                if (due.length === 0) return
+                try {
+                    const now = new Date()
+                    const due = get().recurringTransactions.filter(rt => rt.active && new Date(rt.nextRunDate) <= now)
+                    if (due.length === 0) return
 
-                const batch = writeBatch(db)
-                let hasUpdates = false
+                    for (const rt of due) {
+                        try {
+                            await runTransaction(db, async (transaction) => {
+                                const rtRef = doc(db, 'recurring_transactions', rt.id)
+                                const rtSnap = await transaction.get(rtRef)
+                                if (!rtSnap.exists()) return
 
-                due.forEach(rt => {
-                    // 1. Create Transaction
-                    const newTransRef = doc(collection(db, 'transactions'))
-                    const transactionData = {
-                        amount: rt.amount,
-                        type: rt.type,
-                        category: rt.category,
-                        description: `Recurring: ${rt.name}`,
-                        date: rt.nextRunDate, // Use the scheduled date
-                        userId,
-                        accountId: rt.accountId,
-                        createdAt: Timestamp.now()
+                                const data = rtSnap.data() as RecurringTransaction
+                                if (!data.active) return
+
+                                let nextRun = new Date(data.nextRunDate)
+                                if (nextRun > new Date()) return
+
+                                const accountRef = data.accountId ? doc(db, 'accounts', data.accountId) : null
+                                const accountSnap = accountRef ? await transaction.get(accountRef) : null
+
+                                let balanceDelta = 0
+                                let lastProcessed = data.nextRunDate
+                                let occurrences = 0
+                                const MAX_CATCH_UP = 400
+                                const cutoff = new Date()
+
+                                while (nextRun <= cutoff && occurrences < MAX_CATCH_UP) {
+                                    const newTransRef = doc(collection(db, 'transactions'))
+                                    transaction.set(newTransRef, {
+                                        amount: data.amount,
+                                        type: data.type,
+                                        category: data.category,
+                                        description: `Recurring: ${data.name}`,
+                                        date: nextRun.toISOString(),
+                                        userId: data.userId || userId,
+                                        accountId: data.accountId,
+                                        createdAt: Timestamp.now()
+                                    })
+
+                                    balanceDelta += data.type === 'income' ? data.amount : -data.amount
+                                    lastProcessed = nextRun.toISOString()
+                                    nextRun = getNextRunDate(nextRun, data.frequency)
+                                    occurrences++
+                                }
+
+                                if (occurrences === 0) return
+
+                                if (accountRef && accountSnap?.exists() && balanceDelta !== 0) {
+                                    transaction.update(accountRef, { balance: increment(balanceDelta) })
+                                }
+
+                                transaction.update(rtRef, {
+                                    lastRunDate: lastProcessed,
+                                    nextRunDate: nextRun.toISOString()
+                                })
+                            })
+                        } catch (e) {
+                            console.error("Error processing recurring transaction:", e)
+                        }
                     }
-                    batch.set(newTransRef, transactionData)
-
-                    // 2. Update Account Balance
-                    const account = accounts.find(a => a.id === rt.accountId)
-                    if (account) {
-                        const accountRef = doc(db, 'accounts', rt.accountId)
-                        let newBalance = account.balance
-                        if (rt.type === 'income') newBalance += rt.amount
-                        else newBalance -= rt.amount
-                        batch.update(accountRef, { balance: newBalance })
-                    }
-
-                    // 3. Update Next Run Date
-                    const nextDate = new Date(rt.nextRunDate)
-                    switch (rt.frequency) {
-                        case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
-                        case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
-                        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
-                        case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
-                    }
-
-                    const rtRef = doc(db, 'recurring_transactions', rt.id)
-                    batch.update(rtRef, {
-                        lastRunDate: rt.nextRunDate,
-                        nextRunDate: nextDate.toISOString()
-                    })
-                    hasUpdates = true
-                })
-
-                if (hasUpdates) {
-                    try {
-                        await batch.commit()
-                        console.log(`Processed ${due.length} recurring transactions`)
-                    } catch (e) {
-                        console.error("Error processing recurring:", e)
-                    }
+                } finally {
+                    isProcessingRecurring = false
                 }
             },
 
@@ -499,7 +571,10 @@ export const useTransactionStore = create<TransactionState>()(
                             description: data.description,
                             date: data.date,
                             userId: data.userId,
-                            accountId: data.accountId || "" // Handle legacy
+                            accountId: data.accountId || "", // Handle legacy
+                            toAccountId: data.toAccountId,
+                            goalId: data.goalId,
+                            debtId: data.debtId
                         })
                     })
                     set({ transactions, loading: false })
@@ -591,16 +666,17 @@ export const useTransactionStore = create<TransactionState>()(
                         date: new Date().toISOString(),
                         userId,
                         accountId,
+                        goalId,
                         createdAt: Timestamp.now()
                     })
 
                     // 2. Deduct from Account
                     const accountRef = doc(db, 'accounts', accountId)
-                    batch.update(accountRef, { balance: account.balance - amount })
+                    batch.update(accountRef, { balance: increment(-amount) })
 
                     // 3. Add to Goal
                     const goalRef = doc(db, 'goals', goalId)
-                    batch.update(goalRef, { currentAmount: goal.currentAmount + amount })
+                    batch.update(goalRef, { currentAmount: increment(amount) })
 
                     await batch.commit()
 
@@ -675,21 +751,19 @@ export const useTransactionStore = create<TransactionState>()(
                         date: new Date().toISOString(),
                         userId,
                         accountId,
+                        debtId,
                         createdAt: Timestamp.now()
                     })
 
                     // 2. Update Account
                     const accountRef = doc(db, 'accounts', accountId)
-                    let newBalance = account.balance
-                    if (isPayable) newBalance -= amount
-                    else newBalance += amount
-                    batch.update(accountRef, { balance: newBalance })
+                    batch.update(accountRef, { balance: increment(isPayable ? -amount : amount) })
 
                     // 3. Update Debt
                     const debtRef = doc(db, 'debts', debtId)
                     const newRemaining = debt.remainingAmount - amount
                     batch.update(debtRef, {
-                        remainingAmount: newRemaining,
+                        remainingAmount: increment(-amount),
                         status: newRemaining <= 0 ? 'paid' : 'active'
                     })
 
@@ -713,7 +787,6 @@ export const useTransactionStore = create<TransactionState>()(
                 try {
                     const collections = [
                         'transactions',
-                        'categories',
                         'budgets',
                         'accounts',
                         'recurring_transactions',

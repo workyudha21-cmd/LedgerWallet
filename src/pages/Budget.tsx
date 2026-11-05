@@ -34,6 +34,7 @@ export function Budget() {
     const [editId, setEditId] = useState<string | null>(null)
     const [category, setCategory] = useState("")
     const [amount, setAmount] = useState("")
+    const [formError, setFormError] = useState("")
 
     // 1. Calculate Spent for Current Month
     const currentMonth = new Date().getMonth()
@@ -57,14 +58,15 @@ export function Budget() {
 
     const budgetData = budgets.map(b => {
         const spent = expensesByCategory[b.category] || 0
-        const percentage = Math.min((spent / b.amount) * 100, 100)
+        const rawPercentage = b.amount > 0 ? (spent / b.amount) * 100 : (spent > 0 ? 100 : 0)
         return {
             ...b,
             spent,
             remaining: b.amount - spent,
-            percentage
+            percentage: Math.min(rawPercentage, 100),
+            rawPercentage
         }
-    }).sort((a, b) => b.percentage - a.percentage) // Sort by highest % usage
+    }).sort((a, b) => b.rawPercentage - a.rawPercentage) // Sort by highest % usage
 
     // 3. Metrics
     const totalBudget = budgets.reduce((acc, b) => acc + b.amount, 0)
@@ -79,12 +81,22 @@ export function Budget() {
     const allCategories = Array.from(new Set([...EXPENSE_CATEGORIES, ...customExpenses])).sort()
 
     const handleSave = async () => {
-        if (!user || !category || !amount) return
+        if (!user) return
 
-        await addBudget({
-            category,
-            amount: parseInt(amount.replace(/\D/g, ""), 10)
-        }, user.uid)
+        const parsedAmount = parseInt(amount.replace(/\D/g, ""), 10)
+
+        if (!category) {
+            setFormError("Please select a category.")
+            return
+        }
+
+        if (!parsedAmount || parsedAmount <= 0) {
+            setFormError("Monthly limit must be greater than 0.")
+            return
+        }
+
+        setFormError("")
+        await addBudget({ category, amount: parsedAmount }, user.uid)
 
         setOpen(false)
         setEditId(null)
@@ -96,6 +108,7 @@ export function Budget() {
         setCategory(b.category)
         setAmount(b.amount.toString())
         setEditId(b.id)
+        setFormError("")
         setOpen(true)
     }
 
@@ -106,7 +119,7 @@ export function Budget() {
                     <h2 className="text-3xl font-bold tracking-tight">Budget Planner</h2>
                     <p className="text-muted-foreground">Track your monthly spending limits.</p>
                 </div>
-                <Button onClick={() => { setEditId(null); setCategory(""); setAmount(""); setOpen(true); }}>
+                <Button onClick={() => { setEditId(null); setCategory(""); setAmount(""); setFormError(""); setOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> Set New Budget
                 </Button>
             </div>
@@ -218,8 +231,8 @@ export function Budget() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {budgetData.map((budget) => {
                     let colorClass = "bg-green-500"
-                    if (budget.percentage > 100) colorClass = "bg-red-500"
-                    else if (budget.percentage > 80) colorClass = "bg-yellow-500"
+                    if (budget.rawPercentage > 100) colorClass = "bg-red-500"
+                    else if (budget.rawPercentage > 80) colorClass = "bg-yellow-500"
 
                     return (
                         <Card key={budget.id} className="relative overflow-hidden group hover:shadow-lg transition-all">
@@ -252,7 +265,7 @@ export function Budget() {
                                             {formatCurrency(budget.spent, currency)} spent
                                         </span>
                                         <span className="text-muted-foreground">
-                                            {Math.round(budget.percentage)}%
+                                            {Math.round(budget.rawPercentage)}%
                                         </span>
                                     </div>
                                     <Progress value={budget.percentage} className="h-2" indicatorClassName={colorClass} />
@@ -307,6 +320,9 @@ export function Budget() {
                                 }}
                             />
                         </div>
+                        {formError && (
+                            <p className="text-sm text-destructive">{formError}</p>
+                        )}
                         <Button onClick={handleSave}>Save Budget</Button>
                     </div>
                 </DialogContent>

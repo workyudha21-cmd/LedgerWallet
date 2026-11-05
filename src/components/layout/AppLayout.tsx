@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock, Target, ArrowRightLeft, PieChart, Settings } from "lucide-react"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, CalendarClock, Target, ArrowRightLeft, PieChart, BarChart3, Settings } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -85,6 +85,14 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
         >
           <PieChart className="h-4 w-4" />
           Budget
+        </Link>
+        <Link
+          to="/reports"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/reports' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <BarChart3 className="h-4 w-4" />
+          Reports
         </Link>
         <Link
           to="/settings"

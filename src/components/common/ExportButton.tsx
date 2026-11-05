@@ -28,7 +28,9 @@ export function ExportButton({ transactions, currency }: ExportButtonProps) {
         t.description || "",
         t.category,
         t.type.toUpperCase(),
-        `${t.type === 'income' ? '+' : '-'} ${formatCurrency(Math.abs(t.amount), currency)}`
+        t.type === 'transfer'
+            ? formatCurrency(Math.abs(t.amount), currency)
+            : `${t.type === 'income' ? '+' : '-'} ${formatCurrency(Math.abs(t.amount), currency)}`
     ])
 
     autoTable(doc, {

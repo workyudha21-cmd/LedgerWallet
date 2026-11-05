@@ -1,6 +1,7 @@
 import { useTransactionStore } from "@/lib/store"
 import { AccountCard } from "./AccountCard"
 import { AddAccountDialog } from "./AddAccountDialog"
+import { TransferDialog } from "./TransferDialog"
 
 export function AccountList() {
   const { accounts, currency } = useTransactionStore()
@@ -9,7 +10,10 @@ export function AccountList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold tracking-tight">Your Accounts</h2>
-        <AddAccountDialog />
+        <div className="flex items-center gap-2">
+          <TransferDialog />
+          <AddAccountDialog />
+        </div>
       </div>
       
       {accounts.length === 0 ? (
