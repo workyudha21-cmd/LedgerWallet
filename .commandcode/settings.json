@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Shell(npm:*)"
+      "Shell(npm:*)",
+      "Shell(node -p \"require('./node_modules/typescript/package.json').version\" 2>&1; node -p \"require('./package.json').devDependencies.typescript\" 2>&1; node -p \"JSON.stringify(require('./package.json').scripts,null,2)\" 2>&1)"
     ],
     "deny": [],
     "defaultMode": "default"
