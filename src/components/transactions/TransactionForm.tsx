@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -69,7 +69,7 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
   })
 
   // Watch type change to reset category or filter options
-  const type = form.watch("type")
+  const type = useWatch({ control: form.control, name: "type" })
 
   const activePayables = debts.filter(
     debt => debt.type === "payable" && debt.status !== "paid" && debt.remainingAmount > 0

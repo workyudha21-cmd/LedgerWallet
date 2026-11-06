@@ -23,7 +23,7 @@ import { CalendarIcon, Plus } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type RecurringTransaction } from "@/lib/store"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
@@ -78,7 +78,7 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
   })
 
   // Watch type to filter categories
-  const type = form.watch("type")
+  const type = useWatch({ control: form.control, name: "type" })
   const defaultCategories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
   const relevantCustomCategories = customCategories.filter(c => c.type === type).map(c => c.name)
   const allCategories = Array.from(new Set([...defaultCategories, ...relevantCustomCategories]))

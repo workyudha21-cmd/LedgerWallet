@@ -29,7 +29,7 @@ import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Debt } from "@/lib/store"
 import { splitDebtPayment } from "@/lib/debt"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 
@@ -63,7 +63,8 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
         },
     })
 
-    const paymentAmount = parseInt((form.watch("amount") || "").replace(/\D/g, ""), 10) || 0
+    const watchedAmount = useWatch({ control: form.control, name: "amount" })
+    const paymentAmount = parseInt((watchedAmount || "").replace(/\D/g, ""), 10) || 0
     const split = isPayable && debt.interestRate && paymentAmount > 0
         ? splitDebtPayment(paymentAmount, debt.remainingAmount, debt.interestRate)
         : null

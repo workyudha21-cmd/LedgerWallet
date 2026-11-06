@@ -31,7 +31,7 @@ import { CalendarIcon, Plus } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Debt } from "@/lib/store"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Textarea } from "@/components/ui/textarea"
@@ -87,8 +87,8 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
         },
     })
 
-    const debtType = form.watch("type")
-    const selectedLiabilityType = form.watch("liabilityType")
+    const debtType = useWatch({ control: form.control, name: "type" })
+    const selectedLiabilityType = useWatch({ control: form.control, name: "liabilityType" })
     const isPayable = debtType === "payable"
     const isCreditCard = isPayable && selectedLiabilityType === "creditCard"
 
