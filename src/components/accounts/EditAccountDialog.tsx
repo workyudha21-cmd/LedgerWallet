@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ACCOUNT_TYPES, isLiquidAccountType } from "@/lib/constants"
+import { ACCOUNT_TYPES, isAssetAccountType, isLiquidAccountType } from "@/lib/constants"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Account } from "@/lib/store"
 import { useForm } from "react-hook-form"
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form"
 import { useEffect } from "react"
 import { formatCurrencyInput } from "@/lib/utils"
+import { Textarea } from "@/components/ui/textarea"
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -43,6 +44,10 @@ const formSchema = z.object({
   isLiquid: z.boolean().optional(),
   isEmergencyFund: z.boolean().optional(),
   includeInNetWorth: z.boolean().optional(),
+  purchasePrice: z.string().optional(),
+  purchaseDate: z.string().optional(),
+  valuationDate: z.string().optional(),
+  notes: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -81,9 +86,16 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
       isLiquid: account.isLiquid ?? isLiquidAccountType(account.type),
       isEmergencyFund: account.isEmergencyFund ?? false,
       includeInNetWorth: account.includeInNetWorth ?? true,
+      purchasePrice: account.purchasePrice ? formatCurrencyInput(String(account.purchasePrice)) : "",
+      purchaseDate: account.purchaseDate ?? "",
+      valuationDate: account.valuationDate ?? "",
+      notes: account.notes ?? "",
     },
     mode: "onChange",
   })
+
+  const accountType = form.watch("type")
+  const showAssetDetails = isAssetAccountType(accountType)
 
   // Reset form when account changes
   useEffect(() => {
@@ -93,7 +105,11 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
         balance: formatSignedAmount(String(account.balance ?? 0)),
         isLiquid: account.isLiquid ?? isLiquidAccountType(account.type),
         isEmergencyFund: account.isEmergencyFund ?? false,
-        includeInNetWorth: account.includeInNetWorth ?? true
+        includeInNetWorth: account.includeInNetWorth ?? true,
+        purchasePrice: account.purchasePrice ? formatCurrencyInput(String(account.purchasePrice)) : "",
+        purchaseDate: account.purchaseDate ?? "",
+        valuationDate: account.valuationDate ?? "",
+        notes: account.notes ?? ""
     })
   }, [account, form])
 
@@ -107,6 +123,12 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
         isLiquid: values.isLiquid ?? isLiquidAccountType(values.type),
         isEmergencyFund: values.isEmergencyFund ?? false,
         includeInNetWorth: values.includeInNetWorth ?? true,
+        purchasePrice: values.purchasePrice
+            ? parseInt(values.purchasePrice.replace(/\D/g, ""), 10)
+            : 0,
+        purchaseDate: values.purchaseDate || null,
+        valuationDate: values.valuationDate || null,
+        notes: values.notes || "",
     })
     
     onOpenChange(false)
@@ -142,7 +164,18 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      if (!isAssetAccountType(value)) {
+                        form.setValue("purchasePrice", "")
+                        form.setValue("purchaseDate", "")
+                        form.setValue("valuationDate", "")
+                        form.setValue("notes", "")
+                      }
+                    }}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select account type" />
@@ -165,7 +198,7 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
               name="balance"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Balance</FormLabel>
+                  <FormLabel>{showAssetDetails ? "Current Value" : "Balance"}</FormLabel>
                   <FormControl>
                      <Input 
                         placeholder="0" 
@@ -177,6 +210,68 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
                 </FormItem>
               )}
             />
+            {showAssetDetails && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="purchasePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Price (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="0"
+                          {...field}
+                          onChange={(event) => field.onChange(formatCurrencyInput(event.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="purchaseDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Purchase Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="valuationDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Valuation</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Location, condition, ownership notes..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <FormField
               control={form.control}
               name="isLiquid"

@@ -6,6 +6,14 @@ export interface DebtPaymentSplit {
   principalAmount: number
 }
 
+export interface AmortizationRow {
+  month: number
+  payment: number
+  interest: number
+  principal: number
+  balance: number
+}
+
 export interface DebtPayoffProjection {
   totalDebt: number
   totalMinimumPayment: number
@@ -37,6 +45,39 @@ export function splitDebtPayment(
     interestAmount,
     principalAmount: amount - interestAmount,
   }
+}
+
+export function buildAmortizationSchedule(
+  remainingAmount: number,
+  annualInterestRate: number | undefined,
+  monthlyPayment: number,
+  maxMonths = 600
+): AmortizationRow[] {
+  if (remainingAmount <= 0 || monthlyPayment <= 0) return []
+
+  const monthlyRate = (annualInterestRate || 0) / 100 / 12
+  const rows: AmortizationRow[] = []
+  let balance = remainingAmount
+
+  for (let month = 1; month <= maxMonths && balance > 0; month++) {
+    const interest = balance * monthlyRate
+
+    if (monthlyPayment <= interest) break
+
+    const principal = Math.min(balance, monthlyPayment - interest)
+    const payment = principal + interest
+    balance = Math.max(0, balance - principal)
+
+    rows.push({
+      month,
+      payment,
+      interest,
+      principal,
+      balance,
+    })
+  }
+
+  return rows
 }
 
 export function estimateDebtPayoff(debts: Debt[], now = new Date()): DebtPayoffProjection {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateDebtPayoff, splitDebtPayment } from './debt'
+import { buildAmortizationSchedule, estimateDebtPayoff, splitDebtPayment } from './debt'
 import type { Debt } from './store'
 
 describe('splitDebtPayment', () => {
@@ -44,6 +44,35 @@ const debt = (overrides: Partial<Debt> = {}): Debt => ({
   status: 'active',
   createdAt: {} as never,
   ...overrides,
+})
+
+describe('buildAmortizationSchedule', () => {
+  it('builds a schedule for an interest-free debt', () => {
+    const schedule = buildAmortizationSchedule(12_000_000, 0, 1_000_000)
+
+    expect(schedule).toHaveLength(12)
+    expect(schedule[0].interest).toBe(0)
+    expect(schedule[0].principal).toBe(1_000_000)
+    expect(schedule[schedule.length - 1].balance).toBe(0)
+  })
+
+  it('builds a schedule with monthly interest', () => {
+    const schedule = buildAmortizationSchedule(12_000_000, 12, 2_000_000)
+
+    expect(schedule).toHaveLength(7)
+    expect(schedule[0].interest).toBeCloseTo(120_000)
+    expect(schedule[0].principal).toBeCloseTo(1_880_000)
+    expect(schedule[schedule.length - 1].balance).toBe(0)
+  })
+
+  it('returns an empty schedule when payment does not cover interest', () => {
+    expect(buildAmortizationSchedule(12_000_000, 12, 100_000)).toHaveLength(0)
+  })
+
+  it('returns an empty schedule for zero balance or payment', () => {
+    expect(buildAmortizationSchedule(0, 12, 1_000_000)).toHaveLength(0)
+    expect(buildAmortizationSchedule(1_000_000, 12, 0)).toHaveLength(0)
+  })
 })
 
 describe('estimateDebtPayoff', () => {

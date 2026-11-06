@@ -24,7 +24,8 @@ import {
     EXPENSE_CATEGORIES,
     ACCOUNT_TYPES,
     getDefaultCategoryGroup,
-    type CategoryGroup
+    type CategoryGroup,
+    type LiabilityType
 } from './constants'
 import {
     DEFAULT_FINANCIAL_TARGETS,
@@ -45,6 +46,10 @@ export interface Account {
     isLiquid?: boolean
     isEmergencyFund?: boolean
     includeInNetWorth?: boolean
+    purchasePrice?: number
+    purchaseDate?: string | null
+    valuationDate?: string | null
+    notes?: string
 }
 
 export interface Transaction {
@@ -115,6 +120,10 @@ export interface Debt {
     remainingAmount: number
     minimumPayment?: number
     interestRate?: number
+    liabilityType?: LiabilityType | null
+    creditLimit?: number | null
+    statementDay?: number | null
+    assetId?: string | null
     dueDate?: string | null // ISO string
     description?: string
     status: 'active' | 'paid'

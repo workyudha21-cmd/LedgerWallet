@@ -35,6 +35,11 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Textarea } from "@/components/ui/textarea"
+import {
+    LIABILITY_TYPES,
+    LIABILITY_TYPE_LABELS,
+    type LiabilityType
+} from "@/lib/constants"
 
 const formSchema = z.object({
     type: z.enum(["payable", "receivable"]),
@@ -45,6 +50,10 @@ const formSchema = z.object({
     }, "Amount must be greater than 0"),
     minimumPayment: z.string(),
     interestRate: z.string(),
+    liabilityType: z.enum(LIABILITY_TYPES).optional(),
+    creditLimit: z.string().optional(),
+    statementDay: z.string().optional(),
+    assetId: z.string().optional(),
     dueDate: z.date().optional(),
     description: z.string().optional()
 })
@@ -59,7 +68,7 @@ interface AddDebtDialogProps {
 export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
     const [open, setOpen] = useState(false)
     const user = useAuthStore((state) => state.user)
-    const { addDebt, editDebt } = useTransactionStore()
+    const { addDebt, editDebt, accounts } = useTransactionStore()
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -69,10 +78,22 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
             amount: debt ? formatCurrencyInput(String(debt.totalAmount)) : "",
             minimumPayment: debt?.minimumPayment ? formatCurrencyInput(String(debt.minimumPayment)) : "",
             interestRate: debt?.interestRate ? String(debt.interestRate) : "",
+            liabilityType: debt?.liabilityType || "other",
+            creditLimit: debt?.creditLimit ? formatCurrencyInput(String(debt.creditLimit)) : "",
+            statementDay: debt?.statementDay ? String(debt.statementDay) : "",
+            assetId: debt?.assetId || "none",
             dueDate: debt?.dueDate ? new Date(debt.dueDate) : undefined,
             description: debt?.description || ""
         },
     })
+
+    const debtType = form.watch("type")
+    const selectedLiabilityType = form.watch("liabilityType")
+    const isPayable = debtType === "payable"
+    const isCreditCard = isPayable && selectedLiabilityType === "creditCard"
+    const assetAccounts = accounts.filter(account =>
+        ["Property", "Vehicle", "Investment", "Other"].includes(account.type)
+    )
 
     async function onSubmit(values: FormValues) {
         if (!user) return
@@ -84,12 +105,28 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
         const interestRate = values.interestRate
             ? Math.max(0, Number(values.interestRate.replace(",", ".")) || 0)
             : 0
+        const liabilityType: LiabilityType | null = values.type === "payable"
+            ? values.liabilityType || "other"
+            : null
+        const creditLimit = values.type === "payable" && values.liabilityType === "creditCard" && values.creditLimit
+            ? parseInt(values.creditLimit.replace(/\D/g, ""), 10)
+            : null
+        const statementDay = values.type === "payable" && values.liabilityType === "creditCard" && values.statementDay
+            ? Math.min(31, Math.max(1, parseInt(values.statementDay, 10)))
+            : null
+        const assetId = values.type === "payable" && values.assetId && values.assetId !== "none"
+            ? values.assetId
+            : null
 
         const debtData = {
             personName: values.personName,
             totalAmount: totalAmount,
             minimumPayment: minimumPayment,
             interestRate: interestRate,
+            liabilityType: liabilityType,
+            creditLimit: creditLimit,
+            statementDay: statementDay,
+            assetId: assetId,
             dueDate: values.dueDate ? values.dueDate.toISOString() : null,
             description: values.description
         }
@@ -123,6 +160,10 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
             amount: debt ? formatCurrencyInput(String(debt.totalAmount)) : "",
             minimumPayment: debt?.minimumPayment ? formatCurrencyInput(String(debt.minimumPayment)) : "",
             interestRate: debt?.interestRate ? String(debt.interestRate) : "",
+            liabilityType: debt?.liabilityType || "other",
+            creditLimit: debt?.creditLimit ? formatCurrencyInput(String(debt.creditLimit)) : "",
+            statementDay: debt?.statementDay ? String(debt.statementDay) : "",
+            assetId: debt?.assetId || "none",
             dueDate: debt?.dueDate ? new Date(debt.dueDate) : undefined,
             description: debt?.description || ""
         })
@@ -170,6 +211,65 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                 </FormItem>
                             )}
                         />
+                        {isPayable && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="liabilityType"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Liability Type</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value || "other"}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {LIABILITY_TYPES.map((type) => (
+                                                        <SelectItem key={type} value={type}>
+                                                            {LIABILITY_TYPE_LABELS[type]}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="assetId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Linked Asset (Optional)</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value || "none"}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="None" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="none">None</SelectItem>
+                                                    {assetAccounts.map((account) => (
+                                                        <SelectItem key={account.id} value={account.id}>
+                                                            {account.name} ({account.type})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
+                        )}
                         <FormField
                             control={form.control}
                             name="personName"
@@ -236,6 +336,46 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                 </FormItem>
                             )}
                         />
+                        {isCreditCard && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="creditLimit"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Credit Limit</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="statementDay"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Statement Day</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    max="31"
+                                                    placeholder="e.g. 25"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
+                        )}
                         <FormField
                             control={form.control}
                             name="dueDate"

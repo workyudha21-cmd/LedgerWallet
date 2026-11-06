@@ -1,9 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { useTransactionStore } from "@/lib/store"
 import { calculateNetWorth } from "@/lib/netWorth"
-import { formatCurrency } from "@/lib/utils"
-import { format } from "date-fns"
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
+import { LIABILITY_TYPE_LABELS } from "@/lib/constants"
+import { formatCompactNumber, formatCurrency } from "@/lib/utils"
+import { format, parseISO } from "date-fns"
+import {
+    Area,
+    AreaChart,
+    CartesianGrid,
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts"
 import { Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 
 const COLORS = [
@@ -20,7 +33,7 @@ const COLORS = [
 ]
 
 export function NetWorth() {
-    const { accounts, goals, debts, currency } = useTransactionStore()
+    const { accounts, goals, debts, healthSnapshots, currency } = useTransactionStore()
     const breakdown = calculateNetWorth(accounts, goals, debts)
 
     const includedAccounts = accounts.filter(a => a.includeInNetWorth !== false)
@@ -45,6 +58,14 @@ export function NetWorth() {
         ...(breakdown.totalGoals > 0 ? [{ name: "Goals", value: breakdown.totalGoals }] : []),
         ...(breakdown.totalReceivables > 0 ? [{ name: "Receivables", value: breakdown.totalReceivables }] : []),
     ]
+
+    const netWorthHistory = healthSnapshots.slice(-12).map((snapshot) => {
+        const [year, month] = snapshot.month.split("-").map(Number)
+        return {
+            month: format(new Date(year, month - 1, 1), "MMM yy"),
+            value: snapshot.netWorth,
+        }
+    })
 
     return (
         <div className="flex-1 space-y-4">
@@ -171,27 +192,51 @@ export function NetWorth() {
                         {payables.length === 0 ? (
                             <p className="text-sm text-muted-foreground">No active liabilities.</p>
                         ) : (
-                            payables.map((debt) => (
-                                <div key={debt.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
-                                    <div className="space-y-1">
-                                        <p className="font-medium">{debt.personName}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {debt.minimumPayment
-                                                ? `Min. payment ${formatCurrency(debt.minimumPayment, currency)}`
-                                                : "Minimum payment not set"}
-                                            {debt.interestRate ? ` · ${debt.interestRate}% p.a.` : ""}
-                                        </p>
-                                        {debt.dueDate && (
+                            payables.map((debt) => {
+                                const linkedAsset = accounts.find((account) => account.id === debt.assetId)
+                                const utilization = debt.creditLimit
+                                    ? (debt.remainingAmount / debt.creditLimit) * 100
+                                    : null
+
+                                return (
+                                    <div key={debt.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                                        <div className="space-y-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="font-medium">{debt.personName}</p>
+                                                {debt.liabilityType && (
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                        {LIABILITY_TYPE_LABELS[debt.liabilityType]}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            {linkedAsset && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Asset: {linkedAsset.name}
+                                                </p>
+                                            )}
                                             <p className="text-xs text-muted-foreground">
-                                                Due {format(new Date(debt.dueDate), "PP")}
+                                                {debt.minimumPayment
+                                                    ? `Min. payment ${formatCurrency(debt.minimumPayment, currency)}`
+                                                    : "Minimum payment not set"}
+                                                {debt.interestRate ? ` · ${debt.interestRate}% p.a.` : ""}
                                             </p>
-                                        )}
+                                            {utilization !== null && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Limit {formatCurrency(debt.creditLimit || 0, currency)} · Used {utilization.toFixed(0)}%
+                                                </p>
+                                            )}
+                                            {debt.dueDate && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Due {format(new Date(debt.dueDate), "PP")}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className="font-semibold text-red-500">
+                                            {formatCurrency(debt.remainingAmount, currency)}
+                                        </span>
                                     </div>
-                                    <span className="font-semibold text-red-500">
-                                        {formatCurrency(debt.remainingAmount, currency)}
-                                    </span>
-                                </div>
-                            ))
+                                )
+                            })
                         )}
                     </CardContent>
                 </Card>
@@ -200,25 +245,57 @@ export function NetWorth() {
             <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Included Assets</CardTitle>
-                        <CardDescription>Accounts counted in net worth</CardDescription>
+                        <CardTitle>Asset Details</CardTitle>
+                        <CardDescription>Current value, equity, and linked liabilities</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {includedAccounts.length === 0 ? (
                             <p className="text-sm text-muted-foreground">No accounts yet.</p>
                         ) : (
-                            includedAccounts.map((account) => (
-                                <div key={account.id} className="flex items-center justify-between gap-3 border-b pb-2 last:border-0 last:pb-0">
-                                    <div className="flex items-center gap-2">
-                                        <Wallet className="h-4 w-4 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-sm font-medium">{account.name}</p>
-                                            <p className="text-xs text-muted-foreground">{account.type}</p>
+                            includedAccounts.map((account) => {
+                                const linkedDebt = payables
+                                    .filter((debt) => debt.assetId === account.id)
+                                    .reduce((sum, debt) => sum + debt.remainingAmount, 0)
+                                const equity = account.balance - linkedDebt
+                                const hasPurchasePrice = Boolean(account.purchasePrice && account.purchasePrice > 0)
+                                const gain = hasPurchasePrice ? account.balance - (account.purchasePrice || 0) : null
+                                const gainPercentage = hasPurchasePrice
+                                    ? (gain! / (account.purchasePrice || 1)) * 100
+                                    : 0
+
+                                return (
+                                    <div key={account.id} className="space-y-1 border-b pb-2 last:border-0 last:pb-0">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <Wallet className="h-4 w-4 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-sm font-medium">{account.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {account.type}
+                                                        {account.valuationDate
+                                                            ? ` · valued ${format(parseISO(account.valuationDate), "PP")}`
+                                                            : ""}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-medium">{formatCurrency(account.balance, currency)}</p>
+                                                {gain !== null && (
+                                                    <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                                                        {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
+                                        {linkedDebt > 0 && (
+                                            <div className="flex justify-between pl-6 text-xs text-muted-foreground">
+                                                <span>Linked debt: {formatCurrency(linkedDebt, currency)}</span>
+                                                <span>Equity: {formatCurrency(equity, currency)}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="font-medium">{formatCurrency(account.balance, currency)}</span>
-                                </div>
-                            ))
+                                )
+                            })
                         )}
                     </CardContent>
                 </Card>
@@ -263,6 +340,48 @@ export function NetWorth() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Net Worth History</CardTitle>
+                    <CardDescription>Monthly snapshots recorded from the dashboard</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {netWorthHistory.length === 0 ? (
+                        <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
+                            No history yet. Open the dashboard to record a snapshot.
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={220}>
+                            <AreaChart data={netWorthHistory}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => formatCompactNumber(value)}
+                                />
+                                <Tooltip
+                                    formatter={(value: number) => formatCurrency(value, currency)}
+                                    contentStyle={{
+                                        backgroundColor: "hsl(var(--card))",
+                                        borderColor: "hsl(var(--border))",
+                                        borderRadius: "var(--radius)",
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#6366f1"
+                                    fill="#6366f1"
+                                    fillOpacity={0.15}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     )
 }

@@ -40,6 +40,12 @@ export function isLiquidAccountType(type: string) {
   return LIQUID_ACCOUNT_TYPES.has(type)
 }
 
+const ASSET_ACCOUNT_TYPES = new Set<string>(["Property", "Vehicle", "Investment", "Other"])
+
+export function isAssetAccountType(type: string) {
+  return ASSET_ACCOUNT_TYPES.has(type)
+}
+
 export const ESSENTIAL_EXPENSE_CATEGORIES = new Set<string>([
   "Food & Dining",
   "Transportation",
@@ -73,4 +79,22 @@ export function getDefaultCategoryGroup(name: string, type: 'income' | 'expense'
   if (ESSENTIAL_EXPENSE_CATEGORIES.has(name)) return 'essential'
   if (DISCRETIONARY_EXPENSE_CATEGORIES.has(name)) return 'discretionary'
   return 'other'
+}
+
+export const LIABILITY_TYPES = [
+  'mortgage',
+  'creditCard',
+  'autoLoan',
+  'personalLoan',
+  'other',
+] as const
+
+export type LiabilityType = typeof LIABILITY_TYPES[number]
+
+export const LIABILITY_TYPE_LABELS: Record<LiabilityType, string> = {
+  mortgage: 'Mortgage',
+  creditCard: 'Credit Card',
+  autoLoan: 'Auto Loan',
+  personalLoan: 'Personal Loan',
+  other: 'Other',
 }

@@ -1,6 +1,8 @@
 import { AddDebtDialog } from "@/components/debts/AddDebtDialog"
 import { DebtPaymentDialog } from "@/components/debts/DebtPaymentDialog"
 import { DebtPayoffCard } from "@/components/debts/DebtPayoffCard"
+import { DebtScheduleDialog } from "@/components/debts/DebtScheduleDialog"
+import { LIABILITY_TYPE_LABELS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
@@ -24,7 +26,7 @@ import { useState } from "react"
 import { format } from "date-fns"
 
 export function Debts() {
-    const { debts, currency, deleteDebt } = useTransactionStore()
+    const { debts, accounts, currency, deleteDebt } = useTransactionStore()
     const [deleteId, setDeleteId] = useState<string | null>(null)
 
     const activeDebts = debts.filter(d => (d.status === 'active' || d.status === undefined) && d.remainingAmount > 0)
@@ -45,6 +47,13 @@ export function Debts() {
         const progress = ((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100
         const dueTimestamp = debt.dueDate ? new Date(debt.dueDate).getTime() : null
         const isOverdue = !isHistory && dueTimestamp !== null && dueTimestamp < new Date().getTime() && debt.remainingAmount > 0
+        const linkedAsset = debt.assetId
+            ? accounts.find((account) => account.id === debt.assetId)
+            : undefined
+        const isCreditCard = debt.liabilityType === "creditCard" && Boolean(debt.creditLimit)
+        const utilization = isCreditCard && debt.creditLimit
+            ? (debt.remainingAmount / debt.creditLimit) * 100
+            : null
 
         return (
             <Card className="relative overflow-hidden">
@@ -67,6 +76,12 @@ export function Debts() {
                             {debt.dueDate && (
                                 <CardDescription className={isOverdue ? "text-red-500 font-medium" : ""}>
                                     Due: {format(new Date(debt.dueDate), "PP")}
+                                </CardDescription>
+                            )}
+                            {isPayable && debt.liabilityType && (
+                                <CardDescription>
+                                    {LIABILITY_TYPE_LABELS[debt.liabilityType]}
+                                    {linkedAsset ? ` · ${linkedAsset.name}` : ""}
                                 </CardDescription>
                             )}
                             {debt.description && (
@@ -118,14 +133,45 @@ export function Debts() {
                                 Interest: {debt.interestRate}% p.a.
                             </p>
                         )}
+                        {utilization !== null && (
+                            <div className="space-y-1 pt-1">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Credit utilization</span>
+                                    <span>
+                                        {utilization.toFixed(0)}% of {formatCurrency(debt.creditLimit || 0, currency)}
+                                    </span>
+                                </div>
+                                <Progress
+                                    value={Math.min(100, utilization)}
+                                    className="h-2"
+                                    indicatorClassName={
+                                        utilization < 30
+                                            ? "bg-emerald-500"
+                                            : utilization < 50
+                                                ? "bg-yellow-500"
+                                                : "bg-red-500"
+                                    }
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {!isHistory && (
-                        <div className="flex justify-end pt-2">
+                        <div className="flex justify-end gap-2 pt-2">
+                            {isPayable && !!debt.minimumPayment && (
+                                <DebtScheduleDialog
+                                    debt={debt}
+                                    trigger={
+                                        <Button size="sm" variant="outline">
+                                            Schedule
+                                        </Button>
+                                    }
+                                />
+                            )}
                             <DebtPaymentDialog
                                 debt={debt}
                                 trigger={
-                                    <Button size="sm" className="w-full" variant={isPayable ? "default" : "secondary"}>
+                                    <Button size="sm" variant={isPayable ? "default" : "secondary"}>
                                         {isPayable ? "Pay Debt" : "Record Payment"}
                                     </Button>
                                 }

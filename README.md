@@ -8,10 +8,13 @@ Personal finance tracker built with React, TypeScript, Vite, and Firebase. Track
 - Account deletion with reauthentication and full data cleanup
 - Dashboard with balance summary, cash-flow chart, expense breakdown, and financial health score
 - Financial health metrics with a 3-month window, liquid/emergency-fund balances, minimum debt payments, and expense/fun ratios
-- Net Worth page with asset composition, liabilities, receivables, and excluded assets
+- Net Worth page with asset composition, liabilities, receivables, excluded assets, per-asset equity, and net worth history
+- Asset details for property, vehicles, investments, and other assets (purchase price, purchase date, valuation date, notes, gain/loss)
+- Liability types (mortgage, credit card, auto loan, personal loan, other), credit limits, statement days, and linked assets
+- Credit card utilization indicators
 - 50/30/20 needs/wants/savings dashboard widget
 - Monthly financial health score history
-- Debt payoff projection based on minimum payments and interest rates
+- Debt payoff projection and per-debt amortization schedules based on minimum payments and interest rates
 - Transactions with search, type/date filters, pagination, edit, and delete
 - Multiple accounts with transfers between accounts
 - Monthly budgets per category with over-budget indicators
@@ -103,8 +106,12 @@ src/
 - Expense Ratio and Fun Ratio use each category's group. Groups can be changed from **Settings → Categories**; default categories start with sensible groups and custom categories can be set to essential, discretionary, debt, or other.
 - Accounts can be marked liquid, included in net worth, and/or used as emergency funds. Property and Vehicle account types are available for non-cash assets.
 - Debts can include a minimum monthly payment and annual interest rate. For debts with an interest rate, only the estimated interest portion counts as a consumption expense; principal reduces the debt balance. Transaction history still shows the full cash payment.
+- Asset accounts use `balance` as the current value. Purchase price, purchase date, valuation date, and notes are optional tracking fields. Gain/loss is shown against the purchase price.
+- For a house or vehicle, enter the full asset value as a Property/Vehicle account and enter the mortgage or auto loan as a separate payable debt. Link the debt to the asset on the debt form to see equity (asset value minus linked debt). Do not reduce the asset value by the loan amount as well, or equity will be double-counted.
+- Credit cards can be recorded as payable debts with liability type **Credit Card**, a credit limit, and a statement day. Utilization is shown against the limit. Do not also create a negative account for the same balance.
+- Debt amortization schedules use the current remaining balance, minimum payment, and interest rate. They assume no extra payments and show the first 12 months in the table; the chart covers the full schedule.
 - Financial targets (emergency-fund months, savings rate, and maximum DTI) can be changed in **Settings → Financial Targets** and are persisted locally.
-- The Financial Health widget writes one snapshot per month to the `health_snapshots` collection. History appears in **Reports** after the dashboard has been opened with income and expense data.
+- The Financial Health widget writes one snapshot per month to the `health_snapshots` collection. Score history appears in **Reports**, and net worth history appears on the **Net Worth** page after the dashboard has been opened with income and expense data.
 - The debt payoff projection assumes minimum payments only; it does not model extra payments or negative amortization.
 - Deploy Firestore rules after updating the app so the new `health_snapshots` collection is available:
   ```bash

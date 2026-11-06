@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { format, parseISO } from "date-fns"
 import { useState } from "react"
 import { EditAccountDialog } from "./EditAccountDialog"
 import {
@@ -33,6 +34,12 @@ export function AccountCard({ account, currency }: AccountCardProps) {
   const removeAccount = useTransactionStore((state) => state.removeAccount)
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+
+  const hasPurchasePrice = Boolean(account.purchasePrice && account.purchasePrice > 0)
+  const gain = hasPurchasePrice ? account.balance - (account.purchasePrice || 0) : 0
+  const gainPercentage = hasPurchasePrice
+    ? (gain / (account.purchasePrice || 1)) * 100
+    : 0
 
   const getIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -82,6 +89,16 @@ export function AccountCard({ account, currency }: AccountCardProps) {
         </CardHeader>
         <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(account.balance, currency)}</div>
+            {hasPurchasePrice && (
+              <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
+              </p>
+            )}
+            {account.valuationDate && (
+              <p className="text-xs text-muted-foreground">
+                Valued {format(parseISO(account.valuationDate), "PP")}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground capitalize">
             {account.type} Account
             </p>
