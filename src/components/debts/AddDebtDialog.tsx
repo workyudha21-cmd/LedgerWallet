@@ -178,7 +178,7 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[520px]">
                 <DialogHeader>
                     <DialogTitle>{debt ? "Edit Debt / Loan" : "Add Debt / Loan"}</DialogTitle>
                     <DialogDescription>
@@ -297,44 +297,46 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                 </FormItem>
                             )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="minimumPayment"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Minimum Monthly Payment (Optional)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="0"
-                                            {...field}
-                                            onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="interestRate"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Annual Interest Rate (%)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="minimumPayment"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Minimum Payment</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="0"
+                                                {...field}
+                                                onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="interestRate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Interest Rate (%)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="0"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                         {isCreditCard && (
-                            <>
+                            <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="creditLimit"
@@ -371,7 +373,7 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                         </FormItem>
                                     )}
                                 />
-                            </>
+                            </div>
                         )}
                         <FormField
                             control={form.control}
