@@ -211,7 +211,7 @@ export function Reports() {
                 tickFormatter={(value) => formatCompactNumber(value)}
               />
               <Tooltip
-                cursor={{ fill: "var(--muted)" }}
+                cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
                 formatter={(value: number) => formatCurrency(value, currency)}
                 contentStyle={{
                   backgroundColor: "hsl(var(--card))",

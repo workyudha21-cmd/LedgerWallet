@@ -52,12 +52,12 @@ export function OverviewChart() {
               axisLine={false}
               tickFormatter={(value) => formatCompactNumber(value)}
             />
-            <Tooltip 
-                cursor={{fill: 'var(--muted)'}}
+            <Tooltip
+                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
                 formatter={(value: number) => [formatCurrency(value, currency), 'Net Balance']}
                 contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)' }}
             />
-            <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="total" fill="#6366f1" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
