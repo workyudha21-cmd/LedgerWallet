@@ -92,6 +92,7 @@ export function AccountCard({ account, currency }: AccountCardProps) {
                     <AlertDialogDescription>
                         This will permanently delete the account <strong>{account.name}</strong>.
                         Past transactions linked to this account will remain but will be unlinked.
+                        Recurring transactions using this account will be paused.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -3,6 +3,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { CurrencyToggle } from "@/components/currency-toggle"
 import { CategoryManager } from "@/components/categories/CategoryManager"
 import { ExportDialog } from "@/components/settings/ExportDialog"
+import { BackupRestore } from "@/components/settings/BackupRestore"
 import { Button } from "@/components/ui/button"
 import { Trash2, AlertTriangle } from "lucide-react"
 import {
@@ -20,8 +21,16 @@ import { useTransactionStore } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
 
 export function Settings() {
-    const { resetData } = useTransactionStore()
+    const { resetData, transactions, accounts, budgets, recurringTransactions, goals, debts } = useTransactionStore()
     const { user } = useAuthStore()
+
+    const hasFinancialData =
+        transactions.length > 0 ||
+        accounts.length > 0 ||
+        budgets.length > 0 ||
+        recurringTransactions.length > 0 ||
+        goals.length > 0 ||
+        debts.length > 0
 
     const handleReset = async () => {
         if (!user) return
@@ -59,9 +68,13 @@ export function Settings() {
                         <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Currency</label>
-                                <p className="text-xs text-muted-foreground">Select your preferred currency.</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {hasFinancialData
+                                        ? "Currency is locked while you have financial data so existing amounts are not relabeled."
+                                        : "Select your preferred currency before adding data."}
+                                </p>
                             </div>
-                            <CurrencyToggle />
+                            <CurrencyToggle disabled={hasFinancialData} />
                         </div>
                         <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
@@ -88,6 +101,16 @@ export function Settings() {
                                 <p className="text-xs text-muted-foreground">Download your transaction history.</p>
                             </div>
                             <ExportDialog />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-0.5">
+                                <label className="text-sm font-medium">Backup & Restore</label>
+                                <p className="text-xs text-muted-foreground">
+                                    Download a JSON backup or restore one into an empty account.
+                                </p>
+                            </div>
+                            <BackupRestore />
                         </div>
 
                         <div className="pt-4 border-t">

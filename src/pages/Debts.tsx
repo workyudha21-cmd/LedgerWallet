@@ -42,6 +42,8 @@ export function Debts() {
     const DebtCard = ({ debt, isHistory = false }: { debt: typeof debts[0], isHistory?: boolean }) => {
         const isPayable = debt.type === 'payable'
         const progress = ((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100
+        const dueTimestamp = debt.dueDate ? new Date(debt.dueDate).getTime() : null
+        const isOverdue = !isHistory && dueTimestamp !== null && dueTimestamp < new Date().getTime() && debt.remainingAmount > 0
 
         return (
             <Card className="relative overflow-hidden">
@@ -59,9 +61,10 @@ export function Debts() {
                                     {isPayable ? "I Owe" : "Owed to Me"}
                                 </Badge>
                                 <CardTitle className="text-lg font-bold">{debt.personName}</CardTitle>
+                                {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
                             </div>
                             {debt.dueDate && (
-                                <CardDescription>
+                                <CardDescription className={isOverdue ? "text-red-500 font-medium" : ""}>
                                     Due: {format(new Date(debt.dueDate), "PP")}
                                 </CardDescription>
                             )}

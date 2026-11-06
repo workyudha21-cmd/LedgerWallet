@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils"
 import { format } from "date-fns"
 import { Pencil, Trash, Target, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
     AlertDialog,
@@ -80,15 +81,20 @@ export function Goals() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sorted.map(goal => {
             const progress = (goal.currentAmount / goal.targetAmount) * 100
+            const deadlineTimestamp = goal.deadline ? new Date(goal.deadline).getTime() : null
+            const isOverdue = deadlineTimestamp !== null && deadlineTimestamp < new Date().getTime() && goal.currentAmount < goal.targetAmount
             
             return (
                 <Card key={goal.id}>
                     <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                             <div>
-                                <CardTitle className="text-lg font-bold">{goal.name}</CardTitle>
+                                <div className="flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold">{goal.name}</CardTitle>
+                                    {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
+                                </div>
                                 {goal.deadline && (
-                                    <CardDescription>
+                                    <CardDescription className={isOverdue ? "text-red-500 font-medium" : ""}>
                                         Target: {format(new Date(goal.deadline), "PP")}
                                     </CardDescription>
                                 )}

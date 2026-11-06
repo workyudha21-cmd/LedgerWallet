@@ -101,6 +101,19 @@ export interface Debt {
     createdAt: Timestamp
 }
 
+export interface BackupData {
+    version: 1
+    exportedAt: string
+    currency: 'IDR' | 'USD'
+    accounts: Account[]
+    transactions: Transaction[]
+    categories: Category[]
+    budgets: Budget[]
+    recurringTransactions: RecurringTransaction[]
+    goals: FinancialGoal[]
+    debts: Debt[]
+}
+
 interface TransactionState {
     transactions: Transaction[]
     categories: Category[]
@@ -165,6 +178,7 @@ interface TransactionState {
 
     // Reset Data
     resetData: (userId: string) => Promise<void>
+    importBackup: (backup: BackupData, userId: string) => Promise<void>
 }
 
 let isProcessingRecurring = false
@@ -434,6 +448,51 @@ export const useTransactionStore = create<TransactionState>()(
             },
             removeAccount: async (id) => {
                 try {
+                    const account = get().accounts.find(a => a.id === id)
+                    const userId = account?.userId
+
+                    if (userId) {
+                        const transactionSnapshot = await getDocs(
+                            query(collection(db, 'transactions'), where('userId', '==', userId))
+                        )
+
+                        const transactionUpdates = transactionSnapshot.docs.flatMap((transactionDoc) => {
+                            const data = transactionDoc.data()
+                            const updates: Record<string, string> = {}
+
+                            if (data.accountId === id) updates.accountId = ""
+                            if (data.toAccountId === id) updates.toAccountId = ""
+
+                            return Object.keys(updates).length > 0
+                                ? [{ ref: transactionDoc.ref, updates }]
+                                : []
+                        })
+
+                        for (let index = 0; index < transactionUpdates.length; index += 450) {
+                            const batch = writeBatch(db)
+                            transactionUpdates.slice(index, index + 450).forEach(({ ref, updates }) => {
+                                batch.update(ref, updates)
+                            })
+                            await batch.commit()
+                        }
+
+                        const recurringSnapshot = await getDocs(
+                            query(collection(db, 'recurring_transactions'), where('userId', '==', userId))
+                        )
+
+                        const recurringRefs = recurringSnapshot.docs
+                            .filter((recurringDoc) => recurringDoc.data().accountId === id)
+                            .map((recurringDoc) => recurringDoc.ref)
+
+                        for (let index = 0; index < recurringRefs.length; index += 450) {
+                            const batch = writeBatch(db)
+                            recurringRefs.slice(index, index + 450).forEach((ref) => {
+                                batch.update(ref, { active: false, accountId: "" })
+                            })
+                            await batch.commit()
+                        }
+                    }
+
                     await deleteDoc(doc(db, 'accounts', id))
                 } catch (e) { console.error(e) }
             },
@@ -781,6 +840,41 @@ export const useTransactionStore = create<TransactionState>()(
                     const debts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt))
                     set({ debts })
                 }, (error) => { console.error("Error subscribing to debts:", error) })
+            },
+
+            importBackup: async (backup, userId) => {
+                const entries = [
+                    ['accounts', backup.accounts],
+                    ['transactions', backup.transactions],
+                    ['categories', backup.categories],
+                    ['budgets', backup.budgets],
+                    ['recurring_transactions', backup.recurringTransactions],
+                    ['goals', backup.goals],
+                    ['debts', backup.debts],
+                ] as const
+
+                const writes: Array<{ path: string; id: string; data: Record<string, unknown> }> = []
+
+                for (const [collectionName, items] of entries) {
+                    for (const item of items) {
+                        const { id, ...rest } = item
+                        writes.push({
+                            path: collectionName,
+                            id,
+                            data: { ...rest, userId }
+                        })
+                    }
+                }
+
+                for (let index = 0; index < writes.length; index += 450) {
+                    const batch = writeBatch(db)
+                    writes.slice(index, index + 450).forEach(({ path, id, data }) => {
+                        batch.set(doc(db, path, id), data)
+                    })
+                    await batch.commit()
+                }
+
+                set({ currency: backup.currency })
             },
 
             resetData: async (userId) => {
