@@ -14,14 +14,26 @@ import {
     Timestamp,
     getDoc,
     getDocs,
+    setDoc,
     writeBatch,
     increment,
     runTransaction
 } from 'firebase/firestore'
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, ACCOUNT_TYPES } from './constants'
+import {
+    INCOME_CATEGORIES,
+    EXPENSE_CATEGORIES,
+    ACCOUNT_TYPES,
+    getDefaultCategoryGroup,
+    type CategoryGroup
+} from './constants'
+import {
+    DEFAULT_FINANCIAL_TARGETS,
+    type FinancialTargets
+} from './financialTargets'
+import { splitDebtPayment } from './debt'
 
 export type TransactionType = 'income' | 'expense'
-export type TransactionKind = TransactionType | 'transfer'
+export type TransactionKind = TransactionType | 'transfer' | 'savings'
 
 export interface Account {
     id: string
@@ -30,6 +42,9 @@ export interface Account {
     type: typeof ACCOUNT_TYPES[number]
     balance: number
     color?: string
+    isLiquid?: boolean
+    isEmergencyFund?: boolean
+    includeInNetWorth?: boolean
 }
 
 export interface Transaction {
@@ -44,6 +59,8 @@ export interface Transaction {
     toAccountId?: string
     goalId?: string
     debtId?: string
+    interestAmount?: number
+    principalAmount?: number
 }
 
 export type TransactionFormValues = Omit<Transaction, 'id' | 'userId'>
@@ -54,6 +71,7 @@ export interface Category {
     type: TransactionType
     userId: string
     isDefault?: boolean
+    group?: CategoryGroup
 }
 
 export interface Budget {
@@ -95,16 +113,36 @@ export interface Debt {
     personName: string
     totalAmount: number
     remainingAmount: number
+    minimumPayment?: number
+    interestRate?: number
     dueDate?: string | null // ISO string
     description?: string
     status: 'active' | 'paid'
     createdAt: Timestamp
 }
 
+export interface HealthSnapshot {
+    id: string
+    userId: string
+    month: string
+    score: number
+    status: 'Insufficient Data' | 'Critical' | 'Fair' | 'Good' | 'Excellent'
+    netWorth: number
+    savingsRatio: number
+    debtToIncomeRatio: number
+    emergencyFundRatio: number
+    expenseRatio: number
+    funRatio: number
+    updatedAt?: Timestamp
+}
+
+export type HealthSnapshotPayload = Omit<HealthSnapshot, 'id' | 'userId' | 'updatedAt'>
+
 export interface BackupData {
     version: 1
     exportedAt: string
     currency: 'IDR' | 'USD'
+    financialTargets?: FinancialTargets
     accounts: Account[]
     transactions: Transaction[]
     categories: Category[]
@@ -112,6 +150,7 @@ export interface BackupData {
     recurringTransactions: RecurringTransaction[]
     goals: FinancialGoal[]
     debts: Debt[]
+    healthSnapshots?: HealthSnapshot[]
 }
 
 interface TransactionState {
@@ -122,9 +161,12 @@ interface TransactionState {
     recurringTransactions: RecurringTransaction[]
     goals: FinancialGoal[]
     debts: Debt[]
+    healthSnapshots: HealthSnapshot[]
     currency: 'IDR' | 'USD'
+    financialTargets: FinancialTargets
     loading: boolean
     setCurrency: (currency: 'IDR' | 'USD') => void
+    setFinancialTargets: (targets: Partial<FinancialTargets>) => void
 
     // Async Actions
     addTransaction: (transaction: TransactionFormValues, userId: string) => Promise<void>
@@ -139,6 +181,7 @@ interface TransactionState {
     editTransaction: (id: string, updates: Partial<TransactionFormValues>) => Promise<void>
 
     addCategory: (category: Omit<Category, 'id' | 'userId'>, userId: string) => Promise<void>
+    editCategory: (id: string, updates: Partial<Omit<Category, 'id' | 'userId'>>) => Promise<void>
     removeCategory: (id: string) => Promise<void>
     seedDefaults: (userId: string) => Promise<void>
 
@@ -176,12 +219,31 @@ interface TransactionState {
     payDebt: (debtId: string, amount: number, accountId: string, userId: string) => Promise<void>
     subscribeToDebts: (userId: string) => () => void
 
+    // Health History
+    saveHealthSnapshot: (snapshot: HealthSnapshotPayload, userId: string) => Promise<void>
+    subscribeToHealthSnapshots: (userId: string) => () => void
+
     // Reset Data
     resetData: (userId: string) => Promise<void>
+    deleteAccountData: (userId: string) => Promise<void>
     importBackup: (backup: BackupData, userId: string) => Promise<void>
 }
 
 let isProcessingRecurring = false
+let isMigratingLegacyGoalContributions = false
+
+async function deleteUserDocuments(collectionName: string, userId: string) {
+    const q = query(collection(db, collectionName), where('userId', '==', userId))
+    const snapshot = await getDocs(q)
+
+    for (let index = 0; index < snapshot.docs.length; index += 450) {
+        const batch = writeBatch(db)
+        snapshot.docs.slice(index, index + 450).forEach((docSnapshot) => {
+            batch.delete(docSnapshot.ref)
+        })
+        await batch.commit()
+    }
+}
 
 function getNextRunDate(date: Date, frequency: RecurringTransaction['frequency']): Date {
     const next = new Date(date)
@@ -211,10 +273,19 @@ export const useTransactionStore = create<TransactionState>()(
             recurringTransactions: [],
             goals: [],
             debts: [],
+            healthSnapshots: [],
             currency: 'IDR',
+            financialTargets: DEFAULT_FINANCIAL_TARGETS,
             loading: false,
 
             setCurrency: (currency) => set({ currency }),
+
+            setFinancialTargets: (targets) => set((state) => ({
+                financialTargets: {
+                    ...state.financialTargets,
+                    ...targets
+                }
+            })),
 
             addTransaction: async (formData, userId) => {
                 try {
@@ -391,13 +462,29 @@ export const useTransactionStore = create<TransactionState>()(
                 }
             },
 
+            editCategory: async (id, updates) => {
+                try {
+                    await updateDoc(doc(db, 'categories', id), updates)
+                } catch (error) {
+                    console.error("Error updating category: ", error)
+                }
+            },
+
             seedDefaults: async (userId) => {
                 const { addCategory } = get()
                 for (const cat of INCOME_CATEGORIES) {
-                    await addCategory({ name: cat, type: 'income' }, userId)
+                    await addCategory({
+                        name: cat,
+                        type: 'income',
+                        group: 'income'
+                    }, userId)
                 }
                 for (const cat of EXPENSE_CATEGORIES) {
-                    await addCategory({ name: cat, type: 'expense' }, userId)
+                    await addCategory({
+                        name: cat,
+                        type: 'expense',
+                        group: getDefaultCategoryGroup(cat, 'expense')
+                    }, userId)
                 }
             },
 
@@ -622,10 +709,14 @@ export const useTransactionStore = create<TransactionState>()(
                     const transactions: Transaction[] = []
                     querySnapshot.forEach((doc) => {
                         const data = doc.data()
+                        const isLegacyGoalContribution =
+                            data.type === 'expense' &&
+                            (data.goalId || data.category === 'Navigasi / Financial Goal')
+
                         transactions.push({
                             id: doc.id,
                             amount: data.amount,
-                            type: data.type,
+                            type: isLegacyGoalContribution ? 'savings' : data.type,
                             category: data.category,
                             description: data.description,
                             date: data.date,
@@ -633,9 +724,38 @@ export const useTransactionStore = create<TransactionState>()(
                             accountId: data.accountId || "", // Handle legacy
                             toAccountId: data.toAccountId,
                             goalId: data.goalId,
-                            debtId: data.debtId
+                            debtId: data.debtId,
+                            interestAmount: data.interestAmount,
+                            principalAmount: data.principalAmount
                         })
                     })
+
+                    const legacyGoalContributions = querySnapshot.docs.filter((docSnapshot) => {
+                        const data = docSnapshot.data()
+                        return data.type === 'expense' &&
+                            (data.goalId || data.category === 'Navigasi / Financial Goal')
+                    })
+
+                    if (legacyGoalContributions.length > 0 && !isMigratingLegacyGoalContributions) {
+                        isMigratingLegacyGoalContributions = true
+
+                        const migrate = async () => {
+                            for (let index = 0; index < legacyGoalContributions.length; index += 450) {
+                                const batch = writeBatch(db)
+                                legacyGoalContributions.slice(index, index + 450).forEach((docSnapshot) => {
+                                    batch.update(docSnapshot.ref, { type: 'savings' })
+                                })
+                                await batch.commit()
+                            }
+                        }
+
+                        migrate()
+                            .catch((error) => console.error("Error migrating goal contributions:", error))
+                            .finally(() => {
+                                isMigratingLegacyGoalContributions = false
+                            })
+                    }
+
                     set({ transactions, loading: false })
                 }, (error) => {
                     console.error("Error fetching transactions: ", error)
@@ -649,7 +769,12 @@ export const useTransactionStore = create<TransactionState>()(
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
                     const categories: Category[] = []
                     querySnapshot.forEach((doc) => {
-                        categories.push({ id: doc.id, ...doc.data() } as Category)
+                        const data = doc.data()
+                        categories.push({
+                            id: doc.id,
+                            ...data,
+                            group: data.group ?? getDefaultCategoryGroup(data.name, data.type)
+                        } as Category)
                     })
                     set({ categories })
                 }, (error) => { console.error("Error fetching categories: ", error) })
@@ -715,12 +840,12 @@ export const useTransactionStore = create<TransactionState>()(
 
                     const batch = writeBatch(db)
 
-                    // 1. Create Transaction (Expense)
+                    // 1. Create Savings Transaction
                     const newTransRef = doc(collection(db, 'transactions'))
                     batch.set(newTransRef, {
                         amount,
-                        type: 'expense',
-                        category: 'Navigasi / Financial Goal', // Special category
+                        type: 'savings',
+                        category: 'Goal Contribution',
                         description: `Contribution to ${goal.name}`,
                         date: new Date().toISOString(),
                         userId,
@@ -801,6 +926,9 @@ export const useTransactionStore = create<TransactionState>()(
                     // 1. Create Transaction
                     const newTransRef = doc(collection(db, 'transactions'))
                     const isPayable = debt.type === 'payable' // Hutang (Expense)
+                    const split = isPayable && debt.interestRate && debt.interestRate > 0
+                        ? splitDebtPayment(amount, debt.remainingAmount, debt.interestRate)
+                        : null
 
                     batch.set(newTransRef, {
                         amount,
@@ -811,6 +939,12 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         accountId,
                         debtId,
+                        ...(split
+                            ? {
+                                interestAmount: split.interestAmount,
+                                principalAmount: split.principalAmount
+                            }
+                            : {}),
                         createdAt: Timestamp.now()
                     })
 
@@ -842,7 +976,34 @@ export const useTransactionStore = create<TransactionState>()(
                 }, (error) => { console.error("Error subscribing to debts:", error) })
             },
 
+            saveHealthSnapshot: async (snapshot, userId) => {
+                try {
+                    await setDoc(doc(db, 'health_snapshots', `${userId}_${snapshot.month}`), {
+                        ...snapshot,
+                        userId,
+                        updatedAt: Timestamp.now()
+                    }, { merge: true })
+                } catch (error) {
+                    console.error("Error saving health snapshot:", error)
+                }
+            },
+
+            subscribeToHealthSnapshots: (userId) => {
+                const q = query(collection(db, 'health_snapshots'), where("userId", "==", userId))
+                return onSnapshot(q, (snapshot) => {
+                    const healthSnapshots = snapshot.docs
+                        .map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as HealthSnapshot))
+                        .sort((a, b) => a.month.localeCompare(b.month))
+                    set({ healthSnapshots })
+                }, (error) => { console.error("Error subscribing to health snapshots:", error) })
+            },
+
             importBackup: async (backup, userId) => {
+                const healthSnapshots = (backup.healthSnapshots ?? []).map(snapshot => ({
+                    ...snapshot,
+                    id: `${userId}_${snapshot.month}`
+                }))
+
                 const entries = [
                     ['accounts', backup.accounts],
                     ['transactions', backup.transactions],
@@ -851,6 +1012,7 @@ export const useTransactionStore = create<TransactionState>()(
                     ['recurring_transactions', backup.recurringTransactions],
                     ['goals', backup.goals],
                     ['debts', backup.debts],
+                    ['health_snapshots', healthSnapshots],
                 ] as const
 
                 const writes: Array<{ path: string; id: string; data: Record<string, unknown> }> = []
@@ -874,7 +1036,10 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 }
 
-                set({ currency: backup.currency })
+                set((state) => ({
+                    currency: backup.currency,
+                    financialTargets: backup.financialTargets ?? state.financialTargets
+                }))
             },
 
             resetData: async (userId) => {
@@ -885,36 +1050,42 @@ export const useTransactionStore = create<TransactionState>()(
                         'accounts',
                         'recurring_transactions',
                         'goals',
-                        'debts'
+                        'debts',
+                        'health_snapshots'
                     ]
 
-                    for (const colName of collections) {
-                        const q = query(collection(db, colName), where('userId', '==', userId))
-                        const snapshot = await getDocs(q)
-
-                        // Delete in batches of 500
-                        const chunks = []
-                        for (let i = 0; i < snapshot.docs.length; i += 500) {
-                            chunks.push(snapshot.docs.slice(i, i + 500))
-                        }
-
-                        for (const chunk of chunks) {
-                            const batch = writeBatch(db)
-                            chunk.forEach(doc => {
-                                batch.delete(doc.ref)
-                            })
-                            await batch.commit()
-                        }
+                    for (const collectionName of collections) {
+                        await deleteUserDocuments(collectionName, userId)
                     }
                 } catch (e) {
                     console.error("Error resetting data:", e)
                     throw e
                 }
+            },
+
+            deleteAccountData: async (userId) => {
+                const collections = [
+                    'transactions',
+                    'categories',
+                    'budgets',
+                    'accounts',
+                    'recurring_transactions',
+                    'goals',
+                    'debts',
+                    'health_snapshots'
+                ]
+
+                for (const collectionName of collections) {
+                    await deleteUserDocuments(collectionName, userId)
+                }
             }
         }),
         {
             name: 'ledger-settings',
-            partialize: (state) => ({ currency: state.currency }),
+            partialize: (state) => ({
+                currency: state.currency,
+                financialTargets: state.financialTargets
+            }),
         }
     )
 )

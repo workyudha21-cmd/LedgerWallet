@@ -38,7 +38,9 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
   
   const editTransaction = useTransactionStore((state) => state.editTransaction)
   const removeTransaction = useTransactionStore((state) => state.removeTransaction)
-  const isLinked = Boolean(transaction.goalId || transaction.debtId) || transaction.type === 'transfer'
+  const isLinked = Boolean(transaction.goalId || transaction.debtId) ||
+    transaction.type === 'transfer' ||
+    transaction.type === 'savings'
 
   function onConfirmDelete() {
     removeTransaction(transaction.id)
@@ -90,7 +92,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             defaultValues={{
                 description: transaction.description,
                 amount: formatCurrencyInput(String(transaction.amount)),
-                type: transaction.type === 'transfer' ? 'expense' : transaction.type,
+                type: transaction.type === 'income' ? 'income' : 'expense',
                 category: transaction.category,
                 accountId: transaction.accountId,
                 date: new Date(transaction.date),

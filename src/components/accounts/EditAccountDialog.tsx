@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ACCOUNT_TYPES } from "@/lib/constants"
+import { ACCOUNT_TYPES, isLiquidAccountType } from "@/lib/constants"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Account } from "@/lib/store"
 import { useForm } from "react-hook-form"
@@ -40,6 +40,9 @@ const formSchema = z.object({
   }, {
     message: "Balance must be a valid number.",
   }),
+  isLiquid: z.boolean().optional(),
+  isEmergencyFund: z.boolean().optional(),
+  includeInNetWorth: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -75,6 +78,9 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
       name: account.name,
       type: account.type, 
       balance: formatSignedAmount(String(account.balance ?? 0)),
+      isLiquid: account.isLiquid ?? isLiquidAccountType(account.type),
+      isEmergencyFund: account.isEmergencyFund ?? false,
+      includeInNetWorth: account.includeInNetWorth ?? true,
     },
     mode: "onChange",
   })
@@ -84,7 +90,10 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
     form.reset({
         name: account.name,
         type: account.type,
-        balance: formatSignedAmount(String(account.balance ?? 0))
+        balance: formatSignedAmount(String(account.balance ?? 0)),
+        isLiquid: account.isLiquid ?? isLiquidAccountType(account.type),
+        isEmergencyFund: account.isEmergencyFund ?? false,
+        includeInNetWorth: account.includeInNetWorth ?? true
     })
   }, [account, form])
 
@@ -95,6 +104,9 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
         name: values.name,
         type: values.type as Account['type'],
         balance: parseSignedAmount(values.balance),
+        isLiquid: values.isLiquid ?? isLiquidAccountType(values.type),
+        isEmergencyFund: values.isEmergencyFund ?? false,
+        includeInNetWorth: values.includeInNetWorth ?? true,
     })
     
     onOpenChange(false)
@@ -162,6 +174,57 @@ export function EditAccountDialog({ account, open, onOpenChange }: EditAccountDi
                      />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isLiquid"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(field.value)}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">Liquid asset</FormLabel>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isEmergencyFund"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(field.value)}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">Use as emergency fund</FormLabel>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="includeInNetWorth"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(field.value)}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">Include in net worth</FormLabel>
                 </FormItem>
               )}
             />

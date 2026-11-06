@@ -43,6 +43,8 @@ const formSchema = z.object({
         const num = parseInt(val.replace(/\D/g, ""), 10)
         return !isNaN(num) && num > 0
     }, "Amount must be greater than 0"),
+    minimumPayment: z.string(),
+    interestRate: z.string(),
     dueDate: z.date().optional(),
     description: z.string().optional()
 })
@@ -65,6 +67,8 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
             type: debt?.type || "payable",
             personName: debt?.personName || "",
             amount: debt ? formatCurrencyInput(String(debt.totalAmount)) : "",
+            minimumPayment: debt?.minimumPayment ? formatCurrencyInput(String(debt.minimumPayment)) : "",
+            interestRate: debt?.interestRate ? String(debt.interestRate) : "",
             dueDate: debt?.dueDate ? new Date(debt.dueDate) : undefined,
             description: debt?.description || ""
         },
@@ -74,9 +78,18 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
         if (!user) return
 
         const totalAmount = parseInt(values.amount.replace(/\D/g, ""), 10)
+        const minimumPayment = values.minimumPayment
+            ? parseInt(values.minimumPayment.replace(/\D/g, ""), 10)
+            : 0
+        const interestRate = values.interestRate
+            ? Math.max(0, Number(values.interestRate.replace(",", ".")) || 0)
+            : 0
+
         const debtData = {
             personName: values.personName,
             totalAmount: totalAmount,
+            minimumPayment: minimumPayment,
+            interestRate: interestRate,
             dueDate: values.dueDate ? values.dueDate.toISOString() : null,
             description: values.description
         }
@@ -108,6 +121,8 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
             type: debt?.type || "payable",
             personName: debt?.personName || "",
             amount: debt ? formatCurrencyInput(String(debt.totalAmount)) : "",
+            minimumPayment: debt?.minimumPayment ? formatCurrencyInput(String(debt.minimumPayment)) : "",
+            interestRate: debt?.interestRate ? String(debt.interestRate) : "",
             dueDate: debt?.dueDate ? new Date(debt.dueDate) : undefined,
             description: debt?.description || ""
         })
@@ -179,6 +194,42 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                             placeholder="0"
                                             {...field}
                                             onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="minimumPayment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Minimum Monthly Payment (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="0"
+                                            {...field}
+                                            onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="interestRate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Annual Interest Rate (%)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0"
+                                            {...field}
                                         />
                                     </FormControl>
                                     <FormMessage />

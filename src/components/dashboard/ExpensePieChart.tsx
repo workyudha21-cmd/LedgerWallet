@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import { formatCurrency } from "@/lib/utils"
 
@@ -21,13 +22,16 @@ export function ExpensePieChart() {
 
   // Filter expenses and aggregate by category
   const expenseData = transactions
-    .filter((t) => t.type === "expense")
+    .filter(isConsumptionExpense)
     .reduce((acc, curr) => {
+      const amount = Math.abs(getConsumptionAmount(curr))
+      if (amount === 0) return acc
+
       const existing = acc.find((item) => item.name === curr.category)
       if (existing) {
-        existing.value += Math.abs(curr.amount)
+        existing.value += amount
       } else {
-        acc.push({ name: curr.category, value: Math.abs(curr.amount) })
+        acc.push({ name: curr.category, value: amount })
       }
       return acc
     }, [] as { name: string; value: number }[])

@@ -27,6 +27,7 @@ import { formatCurrencyInput, formatCurrency } from "@/lib/utils"
 // import { Banknote } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Debt } from "@/lib/store"
+import { splitDebtPayment } from "@/lib/debt"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -61,6 +62,11 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
             amount: formatCurrencyInput(debt.remainingAmount.toString()),
         },
     })
+
+    const paymentAmount = parseInt((form.watch("amount") || "").replace(/\D/g, ""), 10) || 0
+    const split = isPayable && debt.interestRate && paymentAmount > 0
+        ? splitDebtPayment(paymentAmount, debt.remainingAmount, debt.interestRate)
+        : null
 
     async function onSubmit(values: FormValues) {
         if (!user) return
@@ -147,6 +153,12 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                                 </FormItem>
                             )}
                         />
+                        {split && (
+                            <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                                <p>Estimated interest: {formatCurrency(split.interestAmount, currency)}</p>
+                                <p>Principal: {formatCurrency(split.principalAmount, currency)}</p>
+                            </div>
+                        )}
                         <Button type="submit" className="w-full">
                             {isPayable ? "Pay" : "Receive"}
                         </Button>

@@ -18,16 +18,26 @@ import {
 } from "@/components/ui/select"
 import { useTransactionStore } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
+import {
+  EXPENSE_CATEGORY_GROUPS,
+  getDefaultCategoryGroup,
+  type CategoryGroup,
+} from "@/lib/constants"
 import { useState } from "react"
 import { Trash2, Plus, Tags } from "lucide-react"
 
+function groupLabel(group: string) {
+  return group.charAt(0).toUpperCase() + group.slice(1)
+}
+
 export function CategoryManager() {
-  const { categories, addCategory, removeCategory } = useTransactionStore()
+  const { categories, addCategory, editCategory, removeCategory } = useTransactionStore()
   const { user } = useAuthStore()
   const [open, setOpen] = useState(false)
-  
+
   const [newCatName, setNewCatName] = useState("")
   const [newCatType, setNewCatType] = useState<"income" | "expense">("expense")
+  const [newCatGroup, setNewCatGroup] = useState<CategoryGroup>("other")
   const [error, setError] = useState("")
 
   const handleAdd = async () => {
@@ -45,10 +55,11 @@ export function CategoryManager() {
 
     setError("")
     await addCategory({
-        name,
-        type: newCatType
+      name,
+      type: newCatType,
+      group: newCatType === "income" ? "income" : newCatGroup,
     }, user.uid)
-    
+
     setNewCatName("")
   }
 
@@ -64,17 +75,17 @@ export function CategoryManager() {
         <DialogHeader>
           <DialogTitle>Manage Categories</DialogTitle>
           <DialogDescription>
-            Create custom categories for your transactions.
+            Create custom categories and choose how they count toward spending.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
-            <div className="flex items-end gap-2">
-                <div className="grid gap-1 flex-1">
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1 sm:col-span-2">
                     <Label htmlFor="catName">Name</Label>
-                    <Input 
-                        id="catName" 
-                        value={newCatName} 
+                    <Input
+                        id="catName"
+                        value={newCatName}
                         onChange={(e) => {
                             setNewCatName(e.target.value)
                             setError("")
@@ -82,12 +93,13 @@ export function CategoryManager() {
                         placeholder="e.g., Online Subscription"
                     />
                 </div>
-                <div className="grid gap-1 w-[110px]">
+                <div className="grid gap-1">
                     <Label>Type</Label>
-                     <Select 
-                        value={newCatType} 
+                     <Select
+                        value={newCatType}
                         onValueChange={(v: "income" | "expense") => {
                             setNewCatType(v)
+                            setNewCatGroup(v === "income" ? "income" : "other")
                             setError("")
                         }}
                     >
@@ -100,10 +112,38 @@ export function CategoryManager() {
                       </SelectContent>
                     </Select>
                 </div>
-                <Button size="icon" onClick={handleAdd}>
-                    <Plus className="h-4 w-4" />
-                </Button>
+                <div className="grid gap-1">
+                    <Label>Group</Label>
+                    {newCatType === "expense" ? (
+                      <Select
+                        value={newCatGroup}
+                        onValueChange={(value) => {
+                          setNewCatGroup(value as CategoryGroup)
+                          setError("")
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EXPENSE_CATEGORY_GROUPS.map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {groupLabel(group)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex h-9 items-center rounded-md border px-3 text-sm text-muted-foreground">
+                        Income
+                      </div>
+                    )}
+                </div>
             </div>
+
+            <Button onClick={handleAdd} className="w-full">
+                <Plus className="mr-2 h-4 w-4" /> Add Category
+            </Button>
 
             {error && (
                 <p className="text-xs text-destructive">{error}</p>
@@ -117,19 +157,41 @@ export function CategoryManager() {
                     </div>
                 )}
                 {categories.map((cat) => (
-                    <div key={cat.id} className="flex items-center justify-between p-2 rounded-md border bg-muted/50">
-                        <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            <span className="text-sm font-medium">{cat.name}</span>
+                    <div key={cat.id} className="space-y-2 rounded-md border bg-muted/50 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${cat.type === 'income' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                <span className="truncate text-sm font-medium">{cat.name}</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => removeCategory(cat.id)}
+                            >
+                                <Trash2 className="h-3 w-3" />
+                            </Button>
                         </div>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeCategory(cat.id)}
-                        >
-                            <Trash2 className="h-3 w-3" />
-                        </Button>
+
+                        {cat.type === "expense" ? (
+                            <Select
+                                value={cat.group ?? getDefaultCategoryGroup(cat.name, "expense")}
+                                onValueChange={(value) => editCategory(cat.id, { group: value as CategoryGroup })}
+                            >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {EXPENSE_CATEGORY_GROUPS.map((group) => (
+                                        <SelectItem key={group} value={group}>
+                                            {groupLabel(group)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">Income category</span>
+                        )}
                     </div>
                 ))}
             </div>

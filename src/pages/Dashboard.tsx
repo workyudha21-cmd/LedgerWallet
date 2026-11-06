@@ -9,6 +9,7 @@ import { GoalsWidget } from "@/components/dashboard/GoalsWidget"
 import { DebtsWidget } from "@/components/dashboard/DebtsWidget"
 import { BudgetHealthWidget } from "@/components/dashboard/BudgetHealthWidget"
 import { FinancialHealthWidget } from "@/components/dashboard/FinancialHealthWidget"
+import { BudgetingRuleWidget } from "@/components/dashboard/BudgetingRuleWidget"
 
 export function Dashboard() {
   return (
@@ -54,6 +55,7 @@ export function Dashboard() {
         {/* Right Column: Widgets (4 cols) */}
         <div className="md:col-span-4 flex flex-col gap-4">
           <FinancialHealthWidget />
+          <BudgetingRuleWidget />
           <BudgetHealthWidget />
           <GoalsWidget />
           <DebtsWidget />

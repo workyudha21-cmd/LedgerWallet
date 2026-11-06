@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount } from "@/lib/transaction-utils"
 import { formatCurrency } from "@/lib/utils"
 import { Download, FileSpreadsheet, FileText } from "lucide-react"
 import { useState } from "react"
@@ -80,7 +81,7 @@ export function ExportDialog() {
         const doc = new jsPDF()
 
         const totalIncome = data.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0)
-        const totalExpense = data.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
+        const totalExpense = data.reduce((acc, t) => acc + getConsumptionAmount(t), 0)
         const net = totalIncome - totalExpense
 
         doc.setFontSize(18)

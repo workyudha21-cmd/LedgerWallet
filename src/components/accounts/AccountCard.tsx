@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { type Account } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
-import { Wallet, Landmark, CreditCard, Banknote, MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { Wallet, Landmark, CreditCard, Banknote, Home, Car, MoreHorizontal, Pencil, Trash } from "lucide-react"
 import { useTransactionStore } from "@/lib/store"
 import {
   DropdownMenu,
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { useState } from "react"
 import { EditAccountDialog } from "./EditAccountDialog"
 import {
@@ -39,6 +40,8 @@ export function AccountCard({ account, currency }: AccountCardProps) {
       case 'bank': return <Landmark className="h-4 w-4" />
       case 'wallet': return <Wallet className="h-4 w-4" />
       case 'investment': return <CreditCard className="h-4 w-4" />
+      case 'property': return <Home className="h-4 w-4" />
+      case 'vehicle': return <Car className="h-4 w-4" />
       default: return <Wallet className="h-4 w-4" />
     }
   }
@@ -50,6 +53,12 @@ export function AccountCard({ account, currency }: AccountCardProps) {
             <CardTitle className="text-sm font-medium capitalize flex items-center gap-2">
             {getIcon(account.type)}
             {account.name}
+            {account.isEmergencyFund && (
+              <Badge variant="outline" className="text-[10px]">Emergency</Badge>
+            )}
+            {account.includeInNetWorth === false && (
+              <Badge variant="outline" className="text-[10px]">Excluded</Badge>
+            )}
             </CardTitle>
             <DropdownMenu>
             <DropdownMenuTrigger asChild>

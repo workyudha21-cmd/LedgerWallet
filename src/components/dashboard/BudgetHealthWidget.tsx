@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
 import { formatCompactNumber } from "@/lib/utils"
 import { PieChart, ArrowRight, TrendingUp, TrendingDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -38,12 +39,12 @@ export function BudgetHealthWidget() {
     const budgetedCategories = new Set(budgets.map(b => b.category))
     const totalSpent = transactions
         .filter(t =>
-            t.type === 'expense' &&
+            isConsumptionExpense(t) &&
             budgetedCategories.has(t.category) &&
             new Date(t.date).getMonth() === currentMonth &&
             new Date(t.date).getFullYear() === currentYear
         )
-        .reduce((acc, t) => acc + t.amount, 0)
+        .reduce((acc, t) => acc + getConsumptionAmount(t), 0)
 
     const rawPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
     const remaining = Math.max(0, totalBudget - totalSpent)

@@ -4,8 +4,12 @@ import { CurrencyToggle } from "@/components/currency-toggle"
 import { CategoryManager } from "@/components/categories/CategoryManager"
 import { ExportDialog } from "@/components/settings/ExportDialog"
 import { BackupRestore } from "@/components/settings/BackupRestore"
+import { DeleteAccountDialog } from "@/components/settings/DeleteAccountDialog"
 import { Button } from "@/components/ui/button"
-import { Trash2, AlertTriangle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Trash2, AlertTriangle, Target } from "lucide-react"
+import { useState } from "react"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -21,8 +25,23 @@ import { useTransactionStore } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
 
 export function Settings() {
-    const { resetData, transactions, accounts, budgets, recurringTransactions, goals, debts } = useTransactionStore()
+    const {
+        resetData,
+        transactions,
+        accounts,
+        budgets,
+        recurringTransactions,
+        goals,
+        debts,
+        financialTargets,
+        setFinancialTargets
+    } = useTransactionStore()
     const { user } = useAuthStore()
+
+    const [emergencyMonths, setEmergencyMonths] = useState(String(financialTargets.emergencyFundMonths))
+    const [savingsTarget, setSavingsTarget] = useState(String(financialTargets.savingsRate))
+    const [maxDti, setMaxDti] = useState(String(financialTargets.maxDti))
+    const [targetsSaved, setTargetsSaved] = useState(false)
 
     const hasFinancialData =
         transactions.length > 0 ||
@@ -31,6 +50,20 @@ export function Settings() {
         recurringTransactions.length > 0 ||
         goals.length > 0 ||
         debts.length > 0
+
+    const handleSaveTargets = () => {
+        const nextTargets = {
+            emergencyFundMonths: Math.min(24, Math.max(1, Number(emergencyMonths) || 1)),
+            savingsRate: Math.min(100, Math.max(1, Number(savingsTarget) || 1)),
+            maxDti: Math.min(100, Math.max(1, Number(maxDti) || 1)),
+        }
+
+        setFinancialTargets(nextTargets)
+        setEmergencyMonths(String(nextTargets.emergencyFundMonths))
+        setSavingsTarget(String(nextTargets.savingsRate))
+        setMaxDti(String(nextTargets.maxDti))
+        setTargetsSaved(true)
+    }
 
     const handleReset = async () => {
         if (!user) return
@@ -130,7 +163,7 @@ export function Settings() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This action cannot be undone. This will permanently delete your transactions, accounts, budgets, recurring transactions, goals, and debts from our servers. Your custom categories will be kept.
+                                                This action cannot be undone. This will permanently delete your transactions, accounts, budgets, recurring transactions, goals, debts, and financial health history from our servers. Your custom categories will be kept.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -141,7 +174,79 @@ export function Settings() {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
+
+                                <div className="pt-4 mt-4 border-t">
+                                    <h4 className="text-sm font-medium text-red-600">Delete Account</h4>
+                                    <p className="text-xs text-muted-foreground mb-3">
+                                        Permanently delete your sign-in account and all data, including categories.
+                                    </p>
+                                    <DeleteAccountDialog />
+                                </div>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Financial Targets */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Target className="h-4 w-4" /> Financial Targets
+                        </CardTitle>
+                        <CardDescription>
+                            Customize the thresholds used by the Financial Health score.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="target-emergency">Emergency fund (months)</Label>
+                                <Input
+                                    id="target-emergency"
+                                    type="number"
+                                    min="1"
+                                    max="24"
+                                    value={emergencyMonths}
+                                    onChange={(event) => {
+                                        setEmergencyMonths(event.target.value)
+                                        setTargetsSaved(false)
+                                    }}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="target-savings">Savings rate (%)</Label>
+                                <Input
+                                    id="target-savings"
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={savingsTarget}
+                                    onChange={(event) => {
+                                        setSavingsTarget(event.target.value)
+                                        setTargetsSaved(false)
+                                    }}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="target-dti">Maximum DTI (%)</Label>
+                                <Input
+                                    id="target-dti"
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={maxDti}
+                                    onChange={(event) => {
+                                        setMaxDti(event.target.value)
+                                        setTargetsSaved(false)
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Button onClick={handleSaveTargets}>Save Targets</Button>
+                            {targetsSaved && (
+                                <span className="text-xs text-emerald-600">Saved</span>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

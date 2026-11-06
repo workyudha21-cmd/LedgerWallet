@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowDownIcon, ArrowUpIcon, WalletIcon } from "lucide-react"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount } from "@/lib/transaction-utils"
 import { formatCurrency } from "@/lib/utils"
 
 export function SummaryCards() {
@@ -11,11 +12,12 @@ export function SummaryCards() {
     .reduce((acc, t) => acc + Number(t.amount), 0)
 
   const expense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + Number(t.amount), 0)
+    .reduce((acc, t) => acc + getConsumptionAmount(t), 0)
 
   // Calculate total balance from all accounts
-  const balance = accounts.reduce((acc, account) => acc + Number(account.balance), 0)
+  const balance = accounts
+    .filter((account) => account.includeInNetWorth !== false)
+    .reduce((acc, account) => acc + Number(account.balance), 0)
 
   const cashFlow = income - expense
 
@@ -47,6 +49,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-500">{formatCurrency(expense, currency)}</div>
+          <p className="text-xs text-muted-foreground">Consumption expenses</p>
         </CardContent>
       </Card>
       <Card className="hover:shadow-md transition-shadow">

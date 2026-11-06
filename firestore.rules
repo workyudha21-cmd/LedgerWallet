@@ -65,5 +65,12 @@ service cloud.firestore {
       allow read, delete: if isOwner();
       allow update: if isOwnerOnUpdate();
     }
+
+    // Financial Health History
+    match /health_snapshots/{snapshotId} {
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
+    }
   }
 }

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
+import { isConsumptionExpense, isSavingsTransaction } from "@/lib/transaction-utils"
 import { format } from "date-fns"
 
 import { TransactionActions } from "@/components/transactions/TransactionActions"
@@ -45,8 +46,8 @@ export function RecentTransactions() {
                 <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.description}</TableCell>
                     <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
-                    <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
-                    {t.type === 'transfer'
+                    <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {t.type === 'transfer' || isSavingsTransaction(t)
                         ? formatCurrency(Math.abs(t.amount), currency)
                         : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                     </TableCell>

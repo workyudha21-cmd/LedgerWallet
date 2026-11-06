@@ -1,5 +1,6 @@
 import { AddDebtDialog } from "@/components/debts/AddDebtDialog"
 import { DebtPaymentDialog } from "@/components/debts/DebtPaymentDialog"
+import { DebtPayoffCard } from "@/components/debts/DebtPayoffCard"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
@@ -107,6 +108,16 @@ export function Debts() {
                             </div>
                         </div>
                         <Progress value={progress} className="h-2" />
+                        {!!debt.minimumPayment && (
+                            <p className="text-xs text-muted-foreground">
+                                Min. payment: {formatCurrency(debt.minimumPayment, currency)}
+                            </p>
+                        )}
+                        {!!debt.interestRate && (
+                            <p className="text-xs text-muted-foreground">
+                                Interest: {debt.interestRate}% p.a.
+                            </p>
+                        )}
                     </div>
 
                     {!isHistory && (
@@ -137,6 +148,8 @@ export function Debts() {
                     <AddDebtDialog />
                 </div>
             </div>
+
+            <DebtPayoffCard />
 
             <Tabs defaultValue="active" className="space-y-4">
                 <TabsList>

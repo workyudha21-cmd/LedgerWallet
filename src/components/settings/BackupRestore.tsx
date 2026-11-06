@@ -19,6 +19,7 @@ import { useRef, useState } from "react"
 export function BackupRestore() {
   const {
     currency,
+    financialTargets,
     accounts,
     transactions,
     categories,
@@ -26,6 +27,7 @@ export function BackupRestore() {
     recurringTransactions,
     goals,
     debts,
+    healthSnapshots,
     importBackup,
   } = useTransactionStore()
   const user = useAuthStore((state) => state.user)
@@ -48,6 +50,7 @@ export function BackupRestore() {
       version: 1,
       exportedAt: new Date().toISOString(),
       currency,
+      financialTargets,
       accounts,
       transactions,
       categories,
@@ -55,6 +58,7 @@ export function BackupRestore() {
       recurringTransactions,
       goals,
       debts,
+      healthSnapshots,
     }
 
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" })

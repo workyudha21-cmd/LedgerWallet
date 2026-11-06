@@ -7,6 +7,7 @@ import { Recurring } from "./pages/Recurring"
 import { Goals } from "./pages/Goals"
 import { Debts } from "./pages/Debts"
 import { Budget } from "./pages/Budget"
+import { NetWorth } from "./pages/NetWorth"
 import { Reports } from "./pages/Reports"
 import { Settings } from "./pages/Settings"
 import { NotFound } from "./pages/NotFound"
@@ -28,7 +29,16 @@ function App() {
   const setUser = useAuthStore((state) => state.setUser)
   const [loading, setLoading] = useState(true)
 
-  const { subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts } = useTransactionStore()
+  const {
+    subscribeToTransactions,
+    subscribeToCategories,
+    subscribeToBudgets,
+    subscribeToAccounts,
+    subscribeToRecurringTransactions,
+    subscribeToGoals,
+    subscribeToDebts,
+    subscribeToHealthSnapshots
+  } = useTransactionStore()
 
 
   useEffect(() => {
@@ -52,7 +62,8 @@ function App() {
         accounts: [],
         recurringTransactions: [],
         goals: [],
-        debts: []
+        debts: [],
+        healthSnapshots: []
       })
 
       if (user) {
@@ -63,7 +74,8 @@ function App() {
           subscribeToAccounts(user.uid),
           subscribeToRecurringTransactions(user.uid),
           subscribeToGoals(user.uid),
-          subscribeToDebts(user.uid)
+          subscribeToDebts(user.uid),
+          subscribeToHealthSnapshots(user.uid)
         ]
       }
     })
@@ -72,7 +84,7 @@ function App() {
       unsubscribeAuth()
       cleanup()
     }
-  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts])
+  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts, subscribeToHealthSnapshots])
 
 
   // Auto-seed defaults if empty (migrating to DB-only source)
@@ -115,6 +127,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="accounts" element={<Accounts />} />
+            <Route path="net-worth" element={<NetWorth />} />
             <Route path="recurring" element={<Recurring />} />
             <Route path="goals" element={<Goals />} />
             <Route path="debts" element={<Debts />} />

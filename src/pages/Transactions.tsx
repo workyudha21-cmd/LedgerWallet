@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
+import { isConsumptionExpense, isSavingsTransaction } from "@/lib/transaction-utils"
 import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
@@ -31,7 +32,13 @@ export function Transactions() {
   const filteredTransactions = transactions.filter((t) => {
     const matchesSearch = (t.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
                           t.category.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === "all" || t.type === typeFilter
+    const matchesType =
+      typeFilter === "all" ||
+      (typeFilter === "expense"
+        ? isConsumptionExpense(t)
+        : typeFilter === "savings"
+          ? isSavingsTransaction(t)
+          : t.type === typeFilter)
     
     let matchesDate = true
     const tDate = new Date(t.date)
@@ -96,6 +103,7 @@ export function Transactions() {
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="income">Income</SelectItem>
                     <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
                     <SelectItem value="transfer">Transfer</SelectItem>
                 </SelectContent>
             </Select>
@@ -151,8 +159,8 @@ export function Transactions() {
                             : getAccountName(t.accountId)}
                       </TableCell>
                       <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
-                      <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
-                      {t.type === 'transfer'
+                      <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {t.type === 'transfer' || isSavingsTransaction(t)
                           ? formatCurrency(Math.abs(t.amount), currency)
                           : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                       </TableCell>
@@ -182,8 +190,8 @@ export function Transactions() {
                     <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
                             <div className="font-bold truncate pr-2">{t.description}</div>
-                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : t.type === 'expense' ? 'text-red-500' : 'text-muted-foreground'}`}>
-                                {t.type === 'transfer'
+                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {t.type === 'transfer' || isSavingsTransaction(t)
                                     ? formatCurrency(Math.abs(t.amount), currency)
                                     : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                             </div>

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
 import { format, subMonths } from "date-fns"
 import { formatCurrency, formatCompactNumber } from "@/lib/utils"
 
@@ -19,7 +20,7 @@ export function OverviewChart() {
     })
     const total = monthTransactions.reduce((acc, t) => {
         if (t.type === 'income') return acc + t.amount
-        if (t.type === 'expense') return acc - t.amount
+        if (isConsumptionExpense(t)) return acc - getConsumptionAmount(t)
         return acc
     }, 0)
 

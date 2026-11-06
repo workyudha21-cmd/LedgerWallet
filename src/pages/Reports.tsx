@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
+import { getConsumptionAmount, isConsumptionExpense, isSavingsTransaction } from "@/lib/transaction-utils"
 import { formatCompactNumber, formatCurrency } from "@/lib/utils"
 import { format, subMonths } from "date-fns"
 import { useState } from "react"
@@ -17,6 +18,9 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,7 +34,7 @@ interface CategoryTotal {
 }
 
 export function Reports() {
-  const { transactions, currency } = useTransactionStore()
+  const { transactions, currency, healthSnapshots } = useTransactionStore()
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"))
 
   const monthOptions = Array.from({ length: 12 }).map((_, index) => {
@@ -42,7 +46,7 @@ export function Reports() {
   })
 
   const monthTransactions = transactions.filter((transaction) => {
-    if (transaction.type === "transfer") return false
+    if (transaction.type === "transfer" || isSavingsTransaction(transaction)) return false
     return format(new Date(transaction.date), "yyyy-MM") === selectedMonth
   })
 
@@ -51,31 +55,42 @@ export function Reports() {
     .reduce((sum, transaction) => sum + transaction.amount, 0)
 
   const totalExpense = monthTransactions
-    .filter((transaction) => transaction.type === "expense")
-    .reduce((sum, transaction) => sum + transaction.amount, 0)
+    .reduce((sum, transaction) => sum + getConsumptionAmount(transaction), 0)
 
   const net = totalIncome - totalExpense
 
   const groupByCategory = (type: "income" | "expense"): CategoryTotal[] =>
     Object.entries(
       monthTransactions
-        .filter((transaction) => transaction.type === type)
+        .filter((transaction) => type === "expense" ? isConsumptionExpense(transaction) : transaction.type === type)
         .reduce((acc, transaction) => {
-          acc[transaction.category] = (acc[transaction.category] || 0) + transaction.amount
+          acc[transaction.category] = (acc[transaction.category] || 0) + getConsumptionAmount(transaction)
           return acc
         }, {} as Record<string, number>)
     )
       .map(([name, value]) => ({ name, value }))
+      .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
 
   const expenseByCategory = groupByCategory("expense")
   const incomeByCategory = groupByCategory("income")
 
+  const healthHistory = healthSnapshots.slice(-12).map((snapshot) => {
+    const [year, month] = snapshot.month.split("-").map(Number)
+    return {
+      month: format(new Date(year, month - 1, 1), "MMM yy"),
+      score: snapshot.score,
+    }
+  })
+
   const trendData = Array.from({ length: 6 }).map((_, index) => {
     const date = subMonths(new Date(), index)
     const monthKey = format(date, "yyyy-MM")
     const monthItems = transactions.filter(
-      (transaction) => format(new Date(transaction.date), "yyyy-MM") === monthKey
+      (transaction) =>
+        transaction.type !== "transfer" &&
+        !isSavingsTransaction(transaction) &&
+        format(new Date(transaction.date), "yyyy-MM") === monthKey
     )
 
     return {
@@ -84,8 +99,7 @@ export function Reports() {
         .filter((transaction) => transaction.type === "income")
         .reduce((sum, transaction) => sum + transaction.amount, 0),
       expense: monthItems
-        .filter((transaction) => transaction.type === "expense")
-        .reduce((sum, transaction) => sum + transaction.amount, 0),
+        .reduce((sum, transaction) => sum + getConsumptionAmount(transaction), 0),
     }
   }).reverse()
 
@@ -210,6 +224,46 @@ export function Reports() {
               <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Health History</CardTitle>
+          <CardDescription>Monthly snapshots recorded from the dashboard</CardDescription>
+        </CardHeader>
+        <CardContent className="pl-2">
+          {healthHistory.length === 0 ? (
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No health history yet. Open the dashboard to record a snapshot.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={healthHistory}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis domain={[0, 100]} fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  formatter={(value: number) => [`${value}/100`, "Score"]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                />
+                <ReferenceLine y={80} stroke="#22c55e" strokeDasharray="3 3" />
+                <ReferenceLine y={60} stroke="#3b82f6" strokeDasharray="3 3" />
+                <ReferenceLine y={40} stroke="#eab308" strokeDasharray="3 3" />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 

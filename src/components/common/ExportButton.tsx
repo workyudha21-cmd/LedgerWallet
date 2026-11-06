@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { type Transaction } from "@/lib/store"
+import { isSavingsTransaction } from "@/lib/transaction-utils"
 import { formatCurrency } from "@/lib/utils"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -28,7 +29,7 @@ export function ExportButton({ transactions, currency }: ExportButtonProps) {
         t.description || "",
         t.category,
         t.type.toUpperCase(),
-        t.type === 'transfer'
+        t.type === 'transfer' || isSavingsTransaction(t)
             ? formatCurrency(Math.abs(t.amount), currency)
             : `${t.type === 'income' ? '+' : '-'} ${formatCurrency(Math.abs(t.amount), currency)}`
     ])

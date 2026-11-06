@@ -23,6 +23,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store"
 import { useState } from "react"
 import { EXPENSE_CATEGORIES } from "@/lib/constants"
+import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
 import { Bar, BarChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
 
 export function Budget() {
@@ -43,11 +44,11 @@ export function Budget() {
     const expensesByCategory = transactions.reduce((acc, t) => {
         const tDate = new Date(t.date)
         if (
-            t.type === 'expense' &&
+            isConsumptionExpense(t) &&
             tDate.getMonth() === currentMonth &&
             tDate.getFullYear() === currentYear
         ) {
-            acc[t.category] = (acc[t.category] || 0) + t.amount
+            acc[t.category] = (acc[t.category] || 0) + getConsumptionAmount(t)
         }
         return acc
     }, {} as Record<string, number>)
