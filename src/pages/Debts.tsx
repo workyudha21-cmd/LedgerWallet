@@ -26,7 +26,7 @@ import { useState } from "react"
 import { format } from "date-fns"
 
 export function Debts() {
-    const { debts, accounts, currency, deleteDebt } = useTransactionStore()
+    const { debts, assets, currency, deleteDebt } = useTransactionStore()
     const [deleteId, setDeleteId] = useState<string | null>(null)
 
     const activeDebts = debts.filter(d => (d.status === 'active' || d.status === undefined) && d.remainingAmount > 0)
@@ -48,7 +48,7 @@ export function Debts() {
         const dueTimestamp = debt.dueDate ? new Date(debt.dueDate).getTime() : null
         const isOverdue = !isHistory && dueTimestamp !== null && dueTimestamp < new Date().getTime() && debt.remainingAmount > 0
         const linkedAsset = debt.assetId
-            ? accounts.find((account) => account.id === debt.assetId)
+            ? assets.find((asset) => asset.id === debt.assetId)
             : undefined
         const isCreditCard = debt.liabilityType === "creditCard" && Boolean(debt.creditLimit)
         const utilization = isCreditCard && debt.creditLimit

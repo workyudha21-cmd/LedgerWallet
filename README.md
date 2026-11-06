@@ -15,6 +15,8 @@ Personal finance tracker built with React, TypeScript, Vite, and Firebase. Track
 - 50/30/20 needs/wants/savings dashboard widget
 - Monthly financial health score history
 - Debt payoff projection and per-debt amortization schedules based on minimum payments and interest rates
+- Add Funds to Asset flow for savings/investment contributions without inflating income or expenses
+- Expense transactions can link to a liability, updating debt principal and progress automatically
 - Transactions with search, type/date filters, pagination, edit, and delete
 - Multiple accounts with transfers between accounts
 - Monthly budgets per category with over-budget indicators
@@ -22,7 +24,9 @@ Personal finance tracker built with React, TypeScript, Vite, and Firebase. Track
 - Financial goals with contributions and progress tracking
 - Debts and receivables with payment recording and overdue indicators
 - Custom categories with configurable groups (essential, discretionary, debt, other)
-- Assets and accounts with liquidity, net-worth inclusion, and emergency-fund flags
+- Separate Accounts (cash/bank/wallet/other) and Assets (property, vehicles, investments, other) pages
+- Automatic migration of legacy Property/Vehicle/Investment accounts into the Assets collection
+- Net-worth inclusion and emergency-fund flags for accounts
 - Debts with minimum payments, interest rates, and principal/interest payment splits
 - Configurable financial targets for savings rate, DTI, and emergency-fund months
 - CSV/PDF export and JSON backup/restore
@@ -101,19 +105,24 @@ src/
 
 - Financial health uses a rolling 3-month window for income, expenses, DTI, and emergency-fund coverage. Net worth is a current snapshot.
 - Goal contributions are stored as `savings`, not `expenses`, so they do not reduce the savings ratio. Legacy goal contributions are migrated automatically when the transaction listener loads.
-- Emergency fund coverage uses accounts marked **Use as emergency fund**. If none are marked, Cash, Bank, and Wallet accounts are used. Investment accounts are excluded by default. The denominator uses essential-category expenses, falling back to total expenses when no essential categories are present.
+- Emergency fund coverage uses accounts marked **Use as emergency fund**. If none are marked, Cash, Bank, and Wallet accounts are used. Assets are not part of the emergency fund because they live in a separate collection. The denominator uses essential-category expenses, falling back to total expenses when no essential categories are present.
 - DTI uses each debt's **minimum monthly payment** when available; otherwise it falls back to actual debt-tagged payments over the last 3 months.
 - Expense Ratio and Fun Ratio use each category's group. Groups can be changed from **Settings → Categories**; default categories start with sensible groups and custom categories can be set to essential, discretionary, debt, or other.
-- Accounts can be marked liquid, included in net worth, and/or used as emergency funds. Property and Vehicle account types are available for non-cash assets.
-- Debts can include a minimum monthly payment and annual interest rate. For debts with an interest rate, only the estimated interest portion counts as a consumption expense; principal reduces the debt balance. Transaction history still shows the full cash payment.
-- Asset accounts use `balance` as the current value. Purchase price, purchase date, valuation date, and notes are optional tracking fields. Gain/loss is shown against the purchase price.
-- For a house or vehicle, enter the full asset value as a Property/Vehicle account and enter the mortgage or auto loan as a separate payable debt. Link the debt to the asset on the debt form to see equity (asset value minus linked debt). Do not reduce the asset value by the loan amount as well, or equity will be double-counted.
+- Accounts are for transactional cash/bank/wallet/other balances. Non-cash assets live on the **Assets** page and cannot be used as transaction or transfer accounts.
+- Debts can include a minimum monthly payment and annual interest rate. For debts with an interest rate, only the estimated interest portion counts as a consumption expense; only the principal portion reduces the debt balance. Transaction history still shows the full cash payment.
+- Expense transactions can be linked to an active payable (for example a Housing expense linked to a mortgage). The payment reduces the liability's principal, updates its progress, and stores the interest/principal split. Do not use both a linked expense and the Debts page payment for the same payment or the debt will be reduced twice.
+- Savings should not be recorded as income or expense. Use **Transfer** between accounts, **Contribute** for goals, or **Add Funds** on an Asset. The Add Funds flow records a `savings` transaction, moves money from an account to the asset, and leaves net worth unchanged.
+- Existing debt payments made before the principal-reduction fix may have reduced `remainingAmount` by the full payment rather than principal. Review and adjust the debt remaining balance if needed.
+- The old default income category **Investments** is renamed to **Investment Income**. Legacy category and transaction labels are migrated automatically when the relevant listeners load.
+- Assets use `currentValue`; purchase price, purchase date, valuation date, and notes are optional tracking fields. Gain/loss is shown against the purchase price.
+- For a house or vehicle, create an Asset on the Assets page, then enter the mortgage or auto loan as a separate payable debt and link the debt to the asset. Do not reduce the asset value by the loan amount as well, or equity will be double-counted.
+- On first load after upgrading from the old account-based asset model, Property/Vehicle/Investment accounts are migrated automatically to the `assets` collection with the same document IDs. Transactions referencing those accounts are unlinked and recurring rules are paused. Review the Assets page after migration.
 - Credit cards can be recorded as payable debts with liability type **Credit Card**, a credit limit, and a statement day. Utilization is shown against the limit. Do not also create a negative account for the same balance.
 - Debt amortization schedules use the current remaining balance, minimum payment, and interest rate. They assume no extra payments and show the first 12 months in the table; the chart covers the full schedule.
 - Financial targets (emergency-fund months, savings rate, and maximum DTI) can be changed in **Settings → Financial Targets** and are persisted locally.
 - The Financial Health widget writes one snapshot per month to the `health_snapshots` collection. Score history appears in **Reports**, and net worth history appears on the **Net Worth** page after the dashboard has been opened with income and expense data.
 - The debt payoff projection assumes minimum payments only; it does not model extra payments or negative amortization.
-- Deploy Firestore rules after updating the app so the new `health_snapshots` collection is available:
+- Deploy Firestore rules after updating the app so the new `assets` and `health_snapshots` collections are available:
   ```bash
   firebase deploy --only firestore:rules
   ```

@@ -1,7 +1,7 @@
 export const INCOME_CATEGORIES = [
   "Salary",
   "Freelance",
-  "Investments",
+  "Investment Income",
   "Gift",
   "Other Income",
 ] as const
@@ -28,9 +28,6 @@ export const ACCOUNT_TYPES = [
   "Cash",
   "Bank",
   "Wallet",
-  "Investment",
-  "Property",
-  "Vehicle",
   "Other"
 ] as const
 
@@ -40,10 +37,23 @@ export function isLiquidAccountType(type: string) {
   return LIQUID_ACCOUNT_TYPES.has(type)
 }
 
-const ASSET_ACCOUNT_TYPES = new Set<string>(["Property", "Vehicle", "Investment", "Other"])
+export const ASSET_CATEGORIES = [
+  "Property",
+  "Vehicle",
+  "Investment",
+  "Other"
+] as const
 
-export function isAssetAccountType(type: string) {
-  return ASSET_ACCOUNT_TYPES.has(type)
+export type AssetCategory = typeof ASSET_CATEGORIES[number]
+
+export const LEGACY_ASSET_ACCOUNT_TYPES = new Set<string>([
+  "Property",
+  "Vehicle",
+  "Investment",
+])
+
+export function isLegacyAssetAccountType(type: string) {
+  return LEGACY_ASSET_ACCOUNT_TYPES.has(type)
 }
 
 export const ESSENTIAL_EXPENSE_CATEGORIES = new Set<string>([

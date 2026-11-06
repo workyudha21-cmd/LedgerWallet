@@ -9,7 +9,7 @@ import { format } from "date-fns"
 import { useEffect, useMemo } from "react"
 
 export function FinancialHealthWidget() {
-    const { accounts, transactions, debts, goals, categories, financialTargets, currency } = useTransactionStore()
+    const { accounts, assets, transactions, debts, goals, categories, financialTargets, currency } = useTransactionStore()
     const user = useAuthStore((state) => state.user)
     const saveHealthSnapshot = useTransactionStore((state) => state.saveHealthSnapshot)
 
@@ -19,7 +19,8 @@ export function FinancialHealthWidget() {
         debts,
         goals,
         categories,
-        financialTargets
+        financialTargets,
+        assets
     )
 
     const currentMonth = format(new Date(), "yyyy-MM")

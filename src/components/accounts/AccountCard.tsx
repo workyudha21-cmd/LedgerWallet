@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { type Account } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
-import { Wallet, Landmark, CreditCard, Banknote, Home, Car, MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { Wallet, Landmark, CreditCard, Banknote, MoreHorizontal, Pencil, Trash } from "lucide-react"
 import { useTransactionStore } from "@/lib/store"
 import {
   DropdownMenu,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { format, parseISO } from "date-fns"
 import { useState } from "react"
 import { EditAccountDialog } from "./EditAccountDialog"
 import {
@@ -35,20 +34,12 @@ export function AccountCard({ account, currency }: AccountCardProps) {
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
 
-  const hasPurchasePrice = Boolean(account.purchasePrice && account.purchasePrice > 0)
-  const gain = hasPurchasePrice ? account.balance - (account.purchasePrice || 0) : 0
-  const gainPercentage = hasPurchasePrice
-    ? (gain / (account.purchasePrice || 1)) * 100
-    : 0
-
   const getIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'cash': return <Banknote className="h-4 w-4" />
       case 'bank': return <Landmark className="h-4 w-4" />
       case 'wallet': return <Wallet className="h-4 w-4" />
       case 'investment': return <CreditCard className="h-4 w-4" />
-      case 'property': return <Home className="h-4 w-4" />
-      case 'vehicle': return <Car className="h-4 w-4" />
       default: return <Wallet className="h-4 w-4" />
     }
   }
@@ -89,16 +80,6 @@ export function AccountCard({ account, currency }: AccountCardProps) {
         </CardHeader>
         <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(account.balance, currency)}</div>
-            {hasPurchasePrice && (
-              <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
-              </p>
-            )}
-            {account.valuationDate && (
-              <p className="text-xs text-muted-foreground">
-                Valued {format(parseISO(account.valuationDate), "PP")}
-              </p>
-            )}
             <p className="text-xs text-muted-foreground capitalize">
             {account.type} Account
             </p>

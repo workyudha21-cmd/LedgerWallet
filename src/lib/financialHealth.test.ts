@@ -159,7 +159,7 @@ describe('calculateFinancialHealth', () => {
     const health = calculateFinancialHealth(
       [
         account(6_000_000, { type: 'Cash' }),
-        account(20_000_000, { type: 'Investment' }),
+        account(20_000_000, { type: 'Other' }),
       ],
       [
         transaction('income', 12_000_000, 'Salary'),
@@ -175,7 +175,7 @@ describe('calculateFinancialHealth', () => {
   it('prefers accounts explicitly marked as emergency funds', () => {
     const health = calculateFinancialHealth(
       [
-        account(6_000_000, { type: 'Investment', isEmergencyFund: true }),
+        account(6_000_000, { type: 'Other', isEmergencyFund: true }),
         account(10_000_000, { type: 'Bank' }),
       ],
       [

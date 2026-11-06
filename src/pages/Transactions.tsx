@@ -23,7 +23,7 @@ import { formatCurrency } from "@/lib/utils"
 const PAGE_SIZE = 20
 
 export function Transactions() {
-  const { transactions, currency, accounts } = useTransactionStore()
+  const { transactions, currency, accounts, assets } = useTransactionStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all") // simplified date filter (all, this month, last month)
@@ -62,6 +62,9 @@ export function Transactions() {
 
   const getAccountName = (accountId?: string) =>
     accounts.find((account) => account.id === accountId)?.name || "-"
+
+  const getAssetName = (assetId?: string) =>
+    assets.find((asset) => asset.id === assetId)?.name || "-"
 
   // ... (exportCSV function) 
 
@@ -156,7 +159,9 @@ export function Transactions() {
                       <TableCell className="text-muted-foreground text-xs">
                         {t.type === 'transfer'
                             ? `${getAccountName(t.accountId)} → ${getAccountName(t.toAccountId)}`
-                            : getAccountName(t.accountId)}
+                            : t.assetId
+                                ? `${getAccountName(t.accountId)} → ${getAssetName(t.assetId)}`
+                                : getAccountName(t.accountId)}
                       </TableCell>
                       <TableCell>{format(new Date(t.date), 'yyyy-MM-dd')}</TableCell>
                       <TableCell className={`text-right ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>

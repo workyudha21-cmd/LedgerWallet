@@ -17,7 +17,7 @@ import {
     XAxis,
     YAxis,
 } from "recharts"
-import { Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { Car, Home, Scale, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 
 const COLORS = [
     "hsl(var(--chart-1))",
@@ -33,17 +33,24 @@ const COLORS = [
 ]
 
 export function NetWorth() {
-    const { accounts, goals, debts, healthSnapshots, currency } = useTransactionStore()
-    const breakdown = calculateNetWorth(accounts, goals, debts)
+    const { accounts, assets, goals, debts, healthSnapshots, currency } = useTransactionStore()
+    const breakdown = calculateNetWorth(accounts, assets, goals, debts)
 
     const includedAccounts = accounts.filter(a => a.includeInNetWorth !== false)
     const excludedAccounts = accounts.filter(a => a.includeInNetWorth === false)
+    const includedAssets = assets.filter(a => a.includeInNetWorth !== false)
+    const excludedAssets = assets.filter(a => a.includeInNetWorth === false)
     const activeDebts = debts.filter(d => d.status !== 'paid' && d.remainingAmount > 0)
     const payables = activeDebts.filter(d => d.type === 'payable')
     const receivables = activeDebts.filter(d => d.type === 'receivable')
 
     const accountTypeTotals = includedAccounts.reduce((acc, account) => {
         acc[account.type] = (acc[account.type] || 0) + (account.balance || 0)
+        return acc
+    }, {} as Record<string, number>)
+
+    const assetCategoryTotals = includedAssets.reduce((acc, asset) => {
+        acc[asset.category] = (acc[asset.category] || 0) + (asset.currentValue || 0)
         return acc
     }, {} as Record<string, number>)
 
@@ -54,7 +61,10 @@ export function NetWorth() {
     const assetData = [
         ...Object.entries(accountTypeTotals)
             .filter(([, value]) => value > 0)
-            .map(([name, value]) => ({ name, value })),
+            .map(([name, value]) => ({ name: `Account · ${name}`, value })),
+        ...Object.entries(assetCategoryTotals)
+            .filter(([, value]) => value > 0)
+            .map(([name, value]) => ({ name: `Asset · ${name}`, value })),
         ...(breakdown.totalGoals > 0 ? [{ name: "Goals", value: breakdown.totalGoals }] : []),
         ...(breakdown.totalReceivables > 0 ? [{ name: "Receivables", value: breakdown.totalReceivables }] : []),
     ]
@@ -193,7 +203,7 @@ export function NetWorth() {
                             <p className="text-sm text-muted-foreground">No active liabilities.</p>
                         ) : (
                             payables.map((debt) => {
-                                const linkedAsset = accounts.find((account) => account.id === debt.assetId)
+                                const linkedAsset = assets.find((asset) => asset.id === debt.assetId)
                                 const utilization = debt.creditLimit
                                     ? (debt.remainingAmount / debt.creditLimit) * 100
                                     : null
@@ -249,37 +259,43 @@ export function NetWorth() {
                         <CardDescription>Current value, equity, and linked liabilities</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {includedAccounts.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No accounts yet.</p>
+                        {includedAssets.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No assets recorded yet. Add one from the Assets page.
+                            </p>
                         ) : (
-                            includedAccounts.map((account) => {
+                            includedAssets.map((asset) => {
                                 const linkedDebt = payables
-                                    .filter((debt) => debt.assetId === account.id)
+                                    .filter((debt) => debt.assetId === asset.id)
                                     .reduce((sum, debt) => sum + debt.remainingAmount, 0)
-                                const equity = account.balance - linkedDebt
-                                const hasPurchasePrice = Boolean(account.purchasePrice && account.purchasePrice > 0)
-                                const gain = hasPurchasePrice ? account.balance - (account.purchasePrice || 0) : null
+                                const equity = asset.currentValue - linkedDebt
+                                const hasPurchasePrice = Boolean(asset.purchasePrice && asset.purchasePrice > 0)
+                                const gain = hasPurchasePrice ? asset.currentValue - (asset.purchasePrice || 0) : null
                                 const gainPercentage = hasPurchasePrice
-                                    ? (gain! / (account.purchasePrice || 1)) * 100
+                                    ? (gain! / (asset.purchasePrice || 1)) * 100
                                     : 0
 
                                 return (
-                                    <div key={account.id} className="space-y-1 border-b pb-2 last:border-0 last:pb-0">
+                                    <div key={asset.id} className="space-y-1 border-b pb-2 last:border-0 last:pb-0">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex items-center gap-2">
-                                                <Wallet className="h-4 w-4 text-muted-foreground" />
+                                                {asset.category === "Vehicle"
+                                                    ? <Car className="h-4 w-4 text-muted-foreground" />
+                                                    : asset.category === "Property"
+                                                        ? <Home className="h-4 w-4 text-muted-foreground" />
+                                                        : <TrendingUp className="h-4 w-4 text-muted-foreground" />}
                                                 <div>
-                                                    <p className="text-sm font-medium">{account.name}</p>
+                                                    <p className="text-sm font-medium">{asset.name}</p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {account.type}
-                                                        {account.valuationDate
-                                                            ? ` · valued ${format(parseISO(account.valuationDate), "PP")}`
+                                                        {asset.category}
+                                                        {asset.valuationDate
+                                                            ? ` · valued ${format(parseISO(asset.valuationDate), "PP")}`
                                                             : ""}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-medium">{formatCurrency(account.balance, currency)}</p>
+                                                <p className="font-medium">{formatCurrency(asset.currentValue, currency)}</p>
                                                 {gain !== null && (
                                                     <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                                                         {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
@@ -302,44 +318,90 @@ export function NetWorth() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Receivables & Excluded</CardTitle>
-                        <CardDescription>Money owed to you and accounts outside net worth</CardDescription>
+                        <CardTitle>Accounts</CardTitle>
+                        <CardDescription>Cash, bank, wallet, and other accounts</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium">Receivables</p>
-                            {receivables.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No active receivables.</p>
-                            ) : (
-                                receivables.map((debt) => (
-                                    <div key={debt.id} className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">{debt.personName}</span>
-                                        <span className="font-medium text-emerald-500">
-                                            {formatCurrency(debt.remainingAmount, currency)}
-                                        </span>
+                    <CardContent className="space-y-3">
+                        {includedAccounts.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No accounts yet.</p>
+                        ) : (
+                            includedAccounts.map((account) => (
+                                <div key={account.id} className="flex items-center justify-between gap-3 border-b pb-2 last:border-0 last:pb-0">
+                                    <div className="flex items-center gap-2">
+                                        <Wallet className="h-4 w-4 text-muted-foreground" />
+                                        <div>
+                                            <p className="text-sm font-medium">{account.name}</p>
+                                            <p className="text-xs text-muted-foreground">{account.type}</p>
+                                        </div>
                                     </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="space-y-2 border-t pt-4">
-                            <p className="text-sm font-medium">Excluded from net worth</p>
-                            {excludedAccounts.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">None.</p>
-                            ) : (
-                                excludedAccounts.map((account) => (
-                                    <div key={account.id} className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">{account.name} ({account.type})</span>
-                                        <span className="text-muted-foreground">
-                                            {formatCurrency(account.balance, currency)}
-                                        </span>
-                                    </div>
-                                ))
-                            )}
-                        </div>
+                                    <span className="font-medium">{formatCurrency(account.balance, currency)}</span>
+                                </div>
+                            ))
+                        )}
+                        {negativeAccountTotal < 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Negative balances ({formatCurrency(negativeAccountTotal, currency)}) reduce total assets and are excluded from the composition chart.
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Receivables & Excluded</CardTitle>
+                    <CardDescription>Money owed to you and items outside net worth</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-6 md:grid-cols-3">
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Receivables</p>
+                        {receivables.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No active receivables.</p>
+                        ) : (
+                            receivables.map((debt) => (
+                                <div key={debt.id} className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{debt.personName}</span>
+                                    <span className="font-medium text-emerald-500">
+                                        {formatCurrency(debt.remainingAmount, currency)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Excluded Accounts</p>
+                        {excludedAccounts.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">None.</p>
+                        ) : (
+                            excludedAccounts.map((account) => (
+                                <div key={account.id} className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{account.name} ({account.type})</span>
+                                    <span className="text-muted-foreground">
+                                        {formatCurrency(account.balance, currency)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Excluded Assets</p>
+                        {excludedAssets.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">None.</p>
+                        ) : (
+                            excludedAssets.map((asset) => (
+                                <div key={asset.id} className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{asset.name} ({asset.category})</span>
+                                    <span className="text-muted-foreground">
+                                        {formatCurrency(asset.currentValue, currency)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>

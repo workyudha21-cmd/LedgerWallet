@@ -68,7 +68,7 @@ interface AddDebtDialogProps {
 export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
     const [open, setOpen] = useState(false)
     const user = useAuthStore((state) => state.user)
-    const { addDebt, editDebt, accounts } = useTransactionStore()
+    const { addDebt, editDebt, assets } = useTransactionStore()
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -91,9 +91,6 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
     const selectedLiabilityType = form.watch("liabilityType")
     const isPayable = debtType === "payable"
     const isCreditCard = isPayable && selectedLiabilityType === "creditCard"
-    const assetAccounts = accounts.filter(account =>
-        ["Property", "Vehicle", "Investment", "Other"].includes(account.type)
-    )
 
     async function onSubmit(values: FormValues) {
         if (!user) return
@@ -257,9 +254,9 @@ export function AddDebtDialog({ debt, trigger }: AddDebtDialogProps) {
                                                 </FormControl>
                                                 <SelectContent>
                                                     <SelectItem value="none">None</SelectItem>
-                                                    {assetAccounts.map((account) => (
-                                                        <SelectItem key={account.id} value={account.id}>
-                                                            {account.name} ({account.type})
+                                                    {assets.map((asset) => (
+                                                        <SelectItem key={asset.id} value={asset.id}>
+                                                            {asset.name} ({asset.category})
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

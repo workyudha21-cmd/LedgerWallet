@@ -36,6 +36,7 @@ const formSchema = z.object({
   type: z.enum(["income", "expense"]),
   category: z.string().min(1, { message: "Category is required" }),
   accountId: z.string().min(1, { message: "Account is required" }),
+  debtId: z.string().optional(),
   date: z.date(),
 })
 
@@ -47,13 +48,11 @@ interface TransactionFormProps {
   submitLabel?: string
 }
 
-import { formatCurrencyInput, cn } from "@/lib/utils"
+import { formatCurrency, formatCurrencyInput, cn } from "@/lib/utils"
 import { useTransactionStore } from "@/lib/store"
 
-// ... (previous imports)
-
 export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" }: TransactionFormProps) {
-  const { categories, accounts } = useTransactionStore()
+  const { categories, accounts, debts, currency } = useTransactionStore()
   
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(formSchema),
@@ -63,6 +62,7 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
       type: "expense",
       category: "",
       accountId: accounts.length > 0 ? accounts[0].id : "",
+      debtId: "none",
       date: new Date(),
       ...defaultValues
     },
@@ -71,14 +71,30 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
   // Watch type change to reset category or filter options
   const type = form.watch("type")
 
+  const activePayables = debts.filter(
+    debt => debt.type === "payable" && debt.status !== "paid" && debt.remainingAmount > 0
+  )
+
   // Prepare category options
   const allCategories = categories
     .filter(c => c.type === type)
     .map(c => c.name)
 
+  function handleSubmit(values: TransactionFormValues) {
+    const amount = parseInt(values.amount.replace(/\D/g, ""), 10)
+    const linkedDebt = activePayables.find(debt => debt.id === values.debtId)
+
+    if (values.type === "expense" && linkedDebt && amount > linkedDebt.remainingAmount) {
+      form.setError("amount", { message: "Amount exceeds the remaining debt." })
+      return
+    }
+
+    onSubmit(values)
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="accountId"
@@ -111,7 +127,8 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
               <FormLabel>Type</FormLabel>
               <Select onValueChange={(val) => {
                   field.onChange(val)
-                  form.setValue("category", "") // Reset category on type change
+                  form.setValue("category", "")
+                  form.setValue("debtId", "none")
               }} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
@@ -181,6 +198,38 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
             </FormItem>
           )}
         />
+        {type === "expense" && activePayables.length > 0 && (
+          <FormField
+            control={form.control}
+            name="debtId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Linked Liability (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {activePayables.map((debt) => (
+                      <SelectItem key={debt.id} value={debt.id}>
+                        {debt.personName} — {formatCurrency(debt.remainingAmount, currency)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {field.value && field.value !== "none" && (
+                  <p className="text-xs text-muted-foreground">
+                    The payment reduces the liability principal. Interest is counted as an expense when the debt has an interest rate.
+                  </p>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name="date"

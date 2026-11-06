@@ -26,6 +26,7 @@ export function AddTransactionDialog({ children }: { children: React.ReactNode }
       type: values.type,
       category: values.category,
       accountId: values.accountId,
+      debtId: values.debtId && values.debtId !== "none" ? values.debtId : undefined,
       date: values.date.toISOString(), // Firestore prefers ISO strings or Timestamp, store expects string
     }, user.uid)
     setOpen(false)

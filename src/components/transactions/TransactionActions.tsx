@@ -38,7 +38,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
   
   const editTransaction = useTransactionStore((state) => state.editTransaction)
   const removeTransaction = useTransactionStore((state) => state.removeTransaction)
-  const isLinked = Boolean(transaction.goalId || transaction.debtId) ||
+  const isLinked = Boolean(transaction.goalId || transaction.debtId || transaction.assetId) ||
     transaction.type === 'transfer' ||
     transaction.type === 'savings'
 
@@ -54,6 +54,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         type: values.type,
         category: values.category,
         accountId: values.accountId,
+        debtId: values.debtId && values.debtId !== "none" ? values.debtId : undefined,
         date: values.date.toISOString(),
     })
     setOpenEdit(false)
@@ -95,6 +96,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 type: transaction.type === 'income' ? 'income' : 'expense',
                 category: transaction.category,
                 accountId: transaction.accountId,
+                debtId: transaction.debtId || "none",
                 date: new Date(transaction.date),
             }} 
             onSubmit={onEditSubmit} 
@@ -112,9 +114,11 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 ? "This will permanently delete the transaction and reduce the linked goal's saved amount."
                 : transaction.debtId
                   ? "This will permanently delete the transaction and restore the linked debt's remaining amount."
-                  : transaction.type === 'transfer'
-                    ? "This will delete the transfer and restore both account balances."
-                    : "This action cannot be undone. This will permanently delete the transaction."}
+                  : transaction.assetId
+                    ? "This will delete the contribution and reduce the linked asset's value."
+                    : transaction.type === 'transfer'
+                      ? "This will delete the transfer and restore both account balances."
+                      : "This action cannot be undone. This will permanently delete the transaction."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

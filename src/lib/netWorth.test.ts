@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateNetWorth } from './netWorth'
-import type { Account, Debt, FinancialGoal } from './store'
+import type { Account, Asset, Debt, FinancialGoal } from './store'
 
 let sequence = 0
 
@@ -10,6 +10,15 @@ const account = (balance: number, overrides: Partial<Account> = {}): Account => 
   name: 'Cash',
   type: 'Cash',
   balance,
+  ...overrides,
+})
+
+const asset = (currentValue: number, overrides: Partial<Asset> = {}): Asset => ({
+  id: `asset-${++sequence}`,
+  userId: 'user-1',
+  name: 'House',
+  category: 'Property',
+  currentValue,
   ...overrides,
 })
 
@@ -40,6 +49,7 @@ describe('calculateNetWorth', () => {
         account(10_000_000),
         account(5_000_000, { includeInNetWorth: false }),
       ],
+      [],
       [goal(2_000_000)],
       [
         debt({ type: 'receivable', totalAmount: 1_000_000, remainingAmount: 1_000_000 }),
@@ -59,6 +69,7 @@ describe('calculateNetWorth', () => {
     const result = calculateNetWorth(
       [account(5_000_000)],
       [],
+      [],
       [
         debt({ remainingAmount: 2_000_000, status: 'paid' }),
         debt({ remainingAmount: 0, status: 'active' }),
@@ -67,5 +78,21 @@ describe('calculateNetWorth', () => {
 
     expect(result.totalPayables).toBe(0)
     expect(result.netWorth).toBe(5_000_000)
+  })
+
+  it('includes separate assets and respects their net-worth flag', () => {
+    const result = calculateNetWorth(
+      [account(10_000_000)],
+      [
+        asset(50_000_000),
+        asset(20_000_000, { includeInNetWorth: false }),
+      ],
+      [goal(2_000_000)],
+      [debt({ remainingAmount: 3_000_000, status: 'active' })]
+    )
+
+    expect(result.totalOtherAssets).toBe(50_000_000)
+    expect(result.totalAssets).toBe(62_000_000)
+    expect(result.netWorth).toBe(59_000_000)
   })
 })

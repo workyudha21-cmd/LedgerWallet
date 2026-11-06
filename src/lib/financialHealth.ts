@@ -1,4 +1,4 @@
-import type { Account, Category, Transaction, Debt, FinancialGoal } from './store'
+import type { Account, Asset, Category, Transaction, Debt, FinancialGoal } from './store'
 import { subDays, isAfter } from 'date-fns'
 import { isLiquidAccountType } from './constants'
 import { buildCategoryGroupMap, getCategoryGroupFromMap } from './category-groups'
@@ -30,14 +30,15 @@ export function calculateFinancialHealth(
     debts: Debt[],
     goals: FinancialGoal[],
     categories: Category[] = [],
-    targets: FinancialTargets = DEFAULT_FINANCIAL_TARGETS
+    targets: FinancialTargets = DEFAULT_FINANCIAL_TARGETS,
+    assets: Asset[] = []
 ): FinancialHealthScore {
     const now = new Date()
     const windowStart = subDays(now, 90)
 
     // 1. Net worth is a current snapshot of assets and liabilities.
     const activeDebts = debts.filter(d => d.status !== 'paid' && d.remainingAmount > 0)
-    const { netWorth, totalPayables } = calculateNetWorth(accounts, goals, debts)
+    const { netWorth, totalPayables } = calculateNetWorth(accounts, assets, goals, debts)
 
     // 2. Ratios use a rolling 3-month window to smooth irregular income and expenses.
     const recentTransactions = transactions.filter(t => isAfter(new Date(t.date), windowStart))

@@ -45,6 +45,13 @@ service cloud.firestore {
       allow update: if isOwnerOnUpdate();
     }
 
+    // Assets
+    match /assets/{assetId} {
+      allow create: if isOwnerOnCreate();
+      allow read, delete: if isOwner();
+      allow update: if isOwnerOnUpdate();
+    }
+
     // Recurring Transactions
     match /recurring_transactions/{recurringId} {
       allow create: if isOwnerOnCreate();

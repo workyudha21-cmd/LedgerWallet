@@ -24,6 +24,8 @@ import {
     EXPENSE_CATEGORIES,
     ACCOUNT_TYPES,
     getDefaultCategoryGroup,
+    isLegacyAssetAccountType,
+    type AssetCategory,
     type CategoryGroup,
     type LiabilityType
 } from './constants'
@@ -52,6 +54,20 @@ export interface Account {
     notes?: string
 }
 
+export interface Asset {
+    id: string
+    userId: string
+    name: string
+    category: AssetCategory
+    currentValue: number
+    purchasePrice?: number
+    purchaseDate?: string | null
+    valuationDate?: string | null
+    notes?: string
+    includeInNetWorth?: boolean
+    createdAt?: Timestamp
+}
+
 export interface Transaction {
     id: string
     amount: number
@@ -64,6 +80,7 @@ export interface Transaction {
     toAccountId?: string
     goalId?: string
     debtId?: string
+    assetId?: string
     interestAmount?: number
     principalAmount?: number
 }
@@ -153,6 +170,7 @@ export interface BackupData {
     currency: 'IDR' | 'USD'
     financialTargets?: FinancialTargets
     accounts: Account[]
+    assets?: Asset[]
     transactions: Transaction[]
     categories: Category[]
     budgets: Budget[]
@@ -167,6 +185,7 @@ interface TransactionState {
     categories: Category[]
     budgets: Budget[]
     accounts: Account[]
+    assets: Asset[]
     recurringTransactions: RecurringTransaction[]
     goals: FinancialGoal[]
     debts: Debt[]
@@ -200,6 +219,19 @@ interface TransactionState {
     addAccount: (account: Omit<Account, 'id' | 'userId'>, userId: string) => Promise<void>
     removeAccount: (id: string) => Promise<void>
     editAccount: (id: string, updates: Partial<Omit<Account, 'id' | 'userId'>>) => Promise<void>
+
+    // Asset Actions
+    addAsset: (asset: Omit<Asset, 'id' | 'userId' | 'createdAt'>, userId: string) => Promise<void>
+    removeAsset: (id: string) => Promise<void>
+    editAsset: (id: string, updates: Partial<Omit<Asset, 'id' | 'userId' | 'createdAt'>>) => Promise<void>
+    contributeToAsset: (contribution: {
+        assetId: string
+        accountId: string
+        amount: number
+        date: string
+        description?: string
+    }, userId: string) => Promise<void>
+    subscribeToAssets: (userId: string) => () => void
 
     // Recurring Actions
     addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId'>, userId: string) => Promise<void>
@@ -240,6 +272,10 @@ interface TransactionState {
 
 let isProcessingRecurring = false
 let isMigratingLegacyGoalContributions = false
+let isMigratingLegacyAssets = false
+let isMigratingInvestmentLabels = false
+let isMigratingInvestmentTransactions = false
+let isMigratingInvestmentRecurring = false
 
 async function deleteUserDocuments(collectionName: string, userId: string) {
     const q = query(collection(db, collectionName), where('userId', '==', userId))
@@ -251,6 +287,75 @@ async function deleteUserDocuments(collectionName: string, userId: string) {
             batch.delete(docSnapshot.ref)
         })
         await batch.commit()
+    }
+}
+
+async function migrateLegacyAssetAccounts(
+    legacyAccounts: Account[],
+    userId: string,
+    onMigrated: (assets: Asset[]) => void
+): Promise<boolean> {
+    if (isMigratingLegacyAssets) return true
+    isMigratingLegacyAssets = true
+
+    try {
+        const createdAt = Timestamp.now()
+        const migratedAssets: Asset[] = legacyAccounts.map(account => ({
+            id: account.id,
+            userId,
+            name: account.name,
+            category: account.type as AssetCategory,
+            currentValue: account.balance,
+            purchasePrice: account.purchasePrice || 0,
+            purchaseDate: account.purchaseDate || null,
+            valuationDate: account.valuationDate || null,
+            notes: account.notes || "",
+            includeInNetWorth: account.includeInNetWorth ?? true,
+            createdAt,
+        }))
+
+        const legacyIds = new Set(legacyAccounts.map(account => account.id))
+        const transactionSnapshot = await getDocs(
+            query(collection(db, 'transactions'), where('userId', '==', userId))
+        )
+        const recurringSnapshot = await getDocs(
+            query(collection(db, 'recurring_transactions'), where('userId', '==', userId))
+        )
+
+        const batch = writeBatch(db)
+
+        migratedAssets.forEach(asset => {
+            const { id, ...data } = asset
+            batch.set(doc(db, 'assets', id), data)
+            batch.delete(doc(db, 'accounts', id))
+        })
+
+        transactionSnapshot.docs.forEach(docSnapshot => {
+            const data = docSnapshot.data()
+            const updates: Record<string, string> = {}
+
+            if (legacyIds.has(data.accountId)) updates.accountId = ""
+            if (legacyIds.has(data.toAccountId)) updates.toAccountId = ""
+
+            if (Object.keys(updates).length > 0) {
+                batch.update(docSnapshot.ref, updates)
+            }
+        })
+
+        recurringSnapshot.docs.forEach(docSnapshot => {
+            if (legacyIds.has(docSnapshot.data().accountId)) {
+                batch.update(docSnapshot.ref, { accountId: "", active: false })
+            }
+        })
+
+        await batch.commit()
+        onMigrated(migratedAssets)
+        return true
+    } catch (error) {
+        console.error("Error migrating legacy asset accounts:", error)
+        return false
+    } finally {
+        isMigratingLegacyAssets = false
     }
 }
 
@@ -279,6 +384,7 @@ export const useTransactionStore = create<TransactionState>()(
             categories: [],
             budgets: [],
             accounts: [],
+            assets: [],
             recurringTransactions: [],
             goals: [],
             debts: [],
@@ -299,14 +405,51 @@ export const useTransactionStore = create<TransactionState>()(
             addTransaction: async (formData, userId) => {
                 try {
                     const batch = writeBatch(db)
-
-                    // 1. Transaction
-                    const newTransRef = doc(collection(db, 'transactions'))
-                    batch.set(newTransRef, {
+                    const transactionData: Record<string, unknown> = {
                         ...formData,
                         userId,
                         createdAt: Timestamp.now()
-                    })
+                    }
+
+                    if (formData.debtId && formData.type === 'expense') {
+                        const debtRef = doc(db, 'debts', formData.debtId)
+                        const debtSnap = await getDoc(debtRef)
+
+                        if (debtSnap.exists()) {
+                            const debt = debtSnap.data() as Debt
+
+                            if (debt.type === 'payable') {
+                                if (formData.amount > debt.remainingAmount) {
+                                    throw new Error("Amount exceeds remaining debt")
+                                }
+
+                                const split = debt.interestRate && debt.interestRate > 0
+                                    ? splitDebtPayment(formData.amount, debt.remainingAmount, debt.interestRate)
+                                    : null
+
+                                if (split) {
+                                    transactionData.interestAmount = split.interestAmount
+                                    transactionData.principalAmount = split.principalAmount
+                                }
+
+                                const principalReduction = split ? split.principalAmount : formData.amount
+                                batch.update(debtRef, {
+                                    remainingAmount: increment(-principalReduction),
+                                    status: debt.remainingAmount - principalReduction <= 0 ? 'paid' : 'active'
+                                })
+                            } else {
+                                delete transactionData.debtId
+                            }
+                        } else {
+                            delete transactionData.debtId
+                        }
+                    } else if (formData.debtId) {
+                        delete transactionData.debtId
+                    }
+
+                    // 1. Transaction
+                    const newTransRef = doc(collection(db, 'transactions'))
+                    batch.set(newTransRef, transactionData)
 
                     // 2. Account Balance
                     if (formData.accountId) {
@@ -393,10 +536,22 @@ export const useTransactionStore = create<TransactionState>()(
                         const debtRef = doc(db, 'debts', trans.debtId)
                         const debtSnap = await getDoc(debtRef)
                         if (debtSnap.exists()) {
+                            const principalRestore = typeof trans.principalAmount === 'number'
+                                ? trans.principalAmount
+                                : trans.amount
+
                             batch.update(debtRef, {
-                                remainingAmount: increment(trans.amount),
+                                remainingAmount: increment(principalRestore),
                                 status: 'active'
                             })
+                        }
+                    }
+
+                    if (trans.assetId) {
+                        const assetRef = doc(db, 'assets', trans.assetId)
+                        const assetSnap = await getDoc(assetRef)
+                        if (assetSnap.exists()) {
+                            batch.update(assetRef, { currentValue: increment(-trans.amount) })
                         }
                     }
 
@@ -413,9 +568,47 @@ export const useTransactionStore = create<TransactionState>()(
 
                     const batch = writeBatch(db)
                     const transRef = doc(db, 'transactions', id)
-                    batch.update(transRef, updates)
-
+                    const transactionUpdates: Partial<Transaction> = { ...updates }
                     const newTrans = { ...oldTrans, ...updates }
+
+                    if (oldTrans.debtId) {
+                        delete transactionUpdates.debtId
+                    } else if (updates.debtId && newTrans.type === 'expense') {
+                        const debtRef = doc(db, 'debts', updates.debtId)
+                        const debtSnap = await getDoc(debtRef)
+
+                        if (debtSnap.exists()) {
+                            const debt = debtSnap.data() as Debt
+                            if (debt.type === 'payable') {
+                                if (newTrans.amount > debt.remainingAmount) {
+                                    throw new Error("Amount exceeds remaining debt")
+                                }
+
+                                const split = debt.interestRate && debt.interestRate > 0
+                                    ? splitDebtPayment(newTrans.amount, debt.remainingAmount, debt.interestRate)
+                                    : null
+
+                                if (split) {
+                                    transactionUpdates.interestAmount = split.interestAmount
+                                    transactionUpdates.principalAmount = split.principalAmount
+                                }
+
+                                const principalReduction = split ? split.principalAmount : newTrans.amount
+                                batch.update(debtRef, {
+                                    remainingAmount: increment(-principalReduction),
+                                    status: debt.remainingAmount - principalReduction <= 0 ? 'paid' : 'active'
+                                })
+                            } else {
+                                delete transactionUpdates.debtId
+                            }
+                        } else {
+                            delete transactionUpdates.debtId
+                        }
+                    } else if (updates.debtId) {
+                        delete transactionUpdates.debtId
+                    }
+
+                    batch.update(transRef, transactionUpdates)
 
                     const impactChanged =
                         oldTrans.amount !== newTrans.amount ||
@@ -598,6 +791,80 @@ export const useTransactionStore = create<TransactionState>()(
                 } catch (e) { console.error(e) }
             },
 
+            addAsset: async (asset, userId) => {
+                try {
+                    await addDoc(collection(db, 'assets'), {
+                        ...asset,
+                        userId,
+                        createdAt: Timestamp.now()
+                    })
+                } catch (e) { console.error("Error adding asset:", e) }
+            },
+            editAsset: async (id, updates) => {
+                try {
+                    await updateDoc(doc(db, 'assets', id), updates)
+                } catch (e) { console.error("Error editing asset:", e) }
+            },
+            removeAsset: async (id) => {
+                try {
+                    const linkedDebts = get().debts.filter(debt => debt.assetId === id)
+                    const batch = writeBatch(db)
+
+                    linkedDebts.forEach(debt => {
+                        batch.update(doc(db, 'debts', debt.id), { assetId: null })
+                    })
+
+                    batch.delete(doc(db, 'assets', id))
+                    await batch.commit()
+                } catch (e) { console.error("Error removing asset:", e) }
+            },
+            contributeToAsset: async (contribution, userId) => {
+                const { accounts, assets } = get()
+                const account = accounts.find(a => a.id === contribution.accountId)
+                const asset = assets.find(a => a.id === contribution.assetId)
+
+                if (!account) throw new Error("Account not found")
+                if (!asset) throw new Error("Asset not found")
+                if (contribution.amount <= 0) throw new Error("Amount must be greater than 0")
+                if (account.balance < contribution.amount) {
+                    throw new Error("Insufficient funds in selected account")
+                }
+
+                const batch = writeBatch(db)
+                const newTransRef = doc(collection(db, 'transactions'))
+
+                batch.set(newTransRef, {
+                    amount: contribution.amount,
+                    type: 'savings',
+                    category: 'Asset Contribution',
+                    description: contribution.description || `Contribution to ${asset.name}`,
+                    date: contribution.date,
+                    userId,
+                    accountId: contribution.accountId,
+                    assetId: contribution.assetId,
+                    createdAt: Timestamp.now()
+                })
+
+                batch.update(doc(db, 'accounts', contribution.accountId), {
+                    balance: increment(-contribution.amount)
+                })
+                batch.update(doc(db, 'assets', contribution.assetId), {
+                    currentValue: increment(contribution.amount)
+                })
+
+                await batch.commit()
+            },
+            subscribeToAssets: (userId) => {
+                const q = query(collection(db, 'assets'), where("userId", "==", userId))
+                return onSnapshot(q, (snapshot) => {
+                    const assets = snapshot.docs.map(docSnapshot => ({
+                        id: docSnapshot.id,
+                        ...docSnapshot.data()
+                    } as Asset))
+                    set({ assets })
+                }, (error) => { console.error("Error subscribing to assets:", error) })
+            },
+
             // Recurring Transactions Implementation
             addRecurringTransaction: async (data, userId) => {
                 try {
@@ -627,8 +894,35 @@ export const useTransactionStore = create<TransactionState>()(
                     where('userId', '==', userId)
                 )
                 return onSnapshot(q, (snapshot) => {
-                    const recurring = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringTransaction))
+                    const recurring = snapshot.docs.map(doc => {
+                        const data = doc.data()
+                        return {
+                            id: doc.id,
+                            ...data,
+                            category: data.type === 'income' && data.category === 'Investments'
+                                ? 'Investment Income'
+                                : data.category
+                        } as RecurringTransaction
+                    })
                     set({ recurringTransactions: recurring })
+
+                    const legacyInvestmentRecurring = snapshot.docs.filter(
+                        docSnapshot => {
+                            const data = docSnapshot.data()
+                            return data.type === 'income' && data.category === 'Investments'
+                        }
+                    )
+
+                    if (legacyInvestmentRecurring.length > 0 && !isMigratingInvestmentRecurring) {
+                        isMigratingInvestmentRecurring = true
+                        const batch = writeBatch(db)
+                        legacyInvestmentRecurring.forEach(docSnapshot => {
+                            batch.update(docSnapshot.ref, { category: 'Investment Income' })
+                        })
+                        batch.commit()
+                            .catch(error => console.error("Error renaming investment recurring category:", error))
+                            .finally(() => { isMigratingInvestmentRecurring = false })
+                    }
 
                     // Check for due transactions whenever the list updates or on load
                     get().processRecurringTransactions(userId)
@@ -721,12 +1015,15 @@ export const useTransactionStore = create<TransactionState>()(
                         const isLegacyGoalContribution =
                             data.type === 'expense' &&
                             (data.goalId || data.category === 'Navigasi / Financial Goal')
+                        const isLegacyInvestmentIncome =
+                            data.type === 'income' &&
+                            data.category === 'Investments'
 
                         transactions.push({
                             id: doc.id,
                             amount: data.amount,
                             type: isLegacyGoalContribution ? 'savings' : data.type,
-                            category: data.category,
+                            category: isLegacyInvestmentIncome ? 'Investment Income' : data.category,
                             description: data.description,
                             date: data.date,
                             userId: data.userId,
@@ -734,6 +1031,7 @@ export const useTransactionStore = create<TransactionState>()(
                             toAccountId: data.toAccountId,
                             goalId: data.goalId,
                             debtId: data.debtId,
+                            assetId: data.assetId,
                             interestAmount: data.interestAmount,
                             principalAmount: data.principalAmount
                         })
@@ -765,6 +1063,31 @@ export const useTransactionStore = create<TransactionState>()(
                             })
                     }
 
+                    const legacyInvestmentTransactions = querySnapshot.docs.filter((docSnapshot) => {
+                        const data = docSnapshot.data()
+                        return data.type === 'income' && data.category === 'Investments'
+                    })
+
+                    if (legacyInvestmentTransactions.length > 0 && !isMigratingInvestmentTransactions) {
+                        isMigratingInvestmentTransactions = true
+
+                        const migrate = async () => {
+                            for (let index = 0; index < legacyInvestmentTransactions.length; index += 450) {
+                                const batch = writeBatch(db)
+                                legacyInvestmentTransactions.slice(index, index + 450).forEach((docSnapshot) => {
+                                    batch.update(docSnapshot.ref, { category: 'Investment Income' })
+                                })
+                                await batch.commit()
+                            }
+                        }
+
+                        migrate()
+                            .catch((error) => console.error("Error renaming investment transactions:", error))
+                            .finally(() => {
+                                isMigratingInvestmentTransactions = false
+                            })
+                    }
+
                     set({ transactions, loading: false })
                 }, (error) => {
                     console.error("Error fetching transactions: ", error)
@@ -786,6 +1109,26 @@ export const useTransactionStore = create<TransactionState>()(
                         } as Category)
                     })
                     set({ categories })
+
+                    if (!isMigratingInvestmentLabels) {
+                        const hasNewLabel = categories.some(
+                            category => category.type === 'income' && category.name === 'Investment Income'
+                        )
+                        const legacyCategories = categories.filter(
+                            category => category.type === 'income' && category.name === 'Investments'
+                        )
+
+                        if (legacyCategories.length > 0 && !hasNewLabel) {
+                            isMigratingInvestmentLabels = true
+                            const batch = writeBatch(db)
+                            legacyCategories.forEach(category => {
+                                batch.update(doc(db, 'categories', category.id), { name: 'Investment Income' })
+                            })
+                            batch.commit()
+                                .catch(error => console.error("Error renaming investment category:", error))
+                                .finally(() => { isMigratingInvestmentLabels = false })
+                        }
+                    }
                 }, (error) => { console.error("Error fetching categories: ", error) })
                 return unsubscribe
             },
@@ -805,11 +1148,35 @@ export const useTransactionStore = create<TransactionState>()(
             subscribeToAccounts: (userId) => {
                 const q = query(collection(db, 'accounts'), where("userId", "==", userId))
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                    const accounts: Account[] = []
-                    querySnapshot.forEach((doc) => {
-                        accounts.push({ id: doc.id, ...doc.data() } as Account)
+                    const allAccounts: Account[] = []
+                    querySnapshot.forEach((docSnapshot) => {
+                        allAccounts.push({ id: docSnapshot.id, ...docSnapshot.data() } as Account)
                     })
+
+                    const legacyAccounts = allAccounts.filter(account =>
+                        isLegacyAssetAccountType(account.type)
+                    )
+                    const accounts = allAccounts.filter(account =>
+                        !isLegacyAssetAccountType(account.type)
+                    )
+
                     set({ accounts })
+
+                    if (legacyAccounts.length > 0) {
+                        migrateLegacyAssetAccounts(legacyAccounts, userId, (migratedAssets) => {
+                            const migratedIds = new Set(migratedAssets.map(asset => asset.id))
+                            set(state => ({
+                                assets: [
+                                    ...state.assets.filter(asset => !migratedIds.has(asset.id)),
+                                    ...migratedAssets
+                                ]
+                            }))
+                        }).then((migrated) => {
+                            if (!migrated) {
+                                set({ accounts: allAccounts })
+                            }
+                        })
+                    }
                 }, (error) => { console.error("Error fetching accounts: ", error) })
                 return unsubscribe
             },
@@ -961,11 +1328,12 @@ export const useTransactionStore = create<TransactionState>()(
                     const accountRef = doc(db, 'accounts', accountId)
                     batch.update(accountRef, { balance: increment(isPayable ? -amount : amount) })
 
-                    // 3. Update Debt
+                    // 3. Update Debt (only principal reduces the balance)
                     const debtRef = doc(db, 'debts', debtId)
-                    const newRemaining = debt.remainingAmount - amount
+                    const principalReduction = split ? split.principalAmount : amount
+                    const newRemaining = debt.remainingAmount - principalReduction
                     batch.update(debtRef, {
-                        remainingAmount: increment(-amount),
+                        remainingAmount: increment(-principalReduction),
                         status: newRemaining <= 0 ? 'paid' : 'active'
                     })
 
@@ -1015,6 +1383,7 @@ export const useTransactionStore = create<TransactionState>()(
 
                 const entries = [
                     ['accounts', backup.accounts],
+                    ['assets', backup.assets ?? []],
                     ['transactions', backup.transactions],
                     ['categories', backup.categories],
                     ['budgets', backup.budgets],
@@ -1057,6 +1426,7 @@ export const useTransactionStore = create<TransactionState>()(
                         'transactions',
                         'budgets',
                         'accounts',
+                        'assets',
                         'recurring_transactions',
                         'goals',
                         'debts',
@@ -1078,6 +1448,7 @@ export const useTransactionStore = create<TransactionState>()(
                     'categories',
                     'budgets',
                     'accounts',
+                    'assets',
                     'recurring_transactions',
                     'goals',
                     'debts',

@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, Scale, CalendarClock, Target, ArrowRightLeft, PieChart, BarChart3, Settings } from "lucide-react"
+import { LayoutDashboard, Receipt, LogOut, Menu, Wallet, Building2, Scale, CalendarClock, Target, ArrowRightLeft, PieChart, BarChart3, Settings } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -55,8 +55,16 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           Accounts
         </Link>
         <Link
+          to="/assets"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/assets' ? 'bg-muted font-medium' : ''}`}
+          onClick={onLinkClick}
+        >
+          <Building2 className="h-4 w-4" />
+          Assets
+        </Link>
+        <Link
           to="/net-worth"
-          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/net-worth' ? 'bg-muted font-medium' : ''}`}
+          className={`flex items-center gap-2 px-2 py-2 rounded transition-colors ${location.pathname === '/net-worth' ? 'bg-muted font-medium' : ''} hover:bg-muted`}
           onClick={onLinkClick}
         >
           <Scale className="h-4 w-4" />

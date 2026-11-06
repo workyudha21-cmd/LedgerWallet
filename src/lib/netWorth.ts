@@ -1,7 +1,8 @@
-import type { Account, Debt, FinancialGoal } from './store'
+import type { Account, Asset, Debt, FinancialGoal } from './store'
 
 export interface NetWorthBreakdown {
   totalAccounts: number
+  totalOtherAssets: number
   totalGoals: number
   totalReceivables: number
   totalAssets: number
@@ -11,6 +12,7 @@ export interface NetWorthBreakdown {
 
 export function calculateNetWorth(
   accounts: Account[],
+  assets: Asset[],
   goals: FinancialGoal[],
   debts: Debt[]
 ): NetWorthBreakdown {
@@ -19,6 +21,10 @@ export function calculateNetWorth(
   const totalAccounts = accounts
     .filter(account => account.includeInNetWorth !== false)
     .reduce((sum, account) => sum + (account.balance || 0), 0)
+
+  const totalOtherAssets = assets
+    .filter(asset => asset.includeInNetWorth !== false)
+    .reduce((sum, asset) => sum + (asset.currentValue || 0), 0)
 
   const totalGoals = goals.reduce((sum, goal) => sum + (goal.currentAmount || 0), 0)
 
@@ -30,10 +36,11 @@ export function calculateNetWorth(
     .filter(d => d.type === 'payable')
     .reduce((sum, d) => sum + (d.remainingAmount || 0), 0)
 
-  const totalAssets = totalAccounts + totalGoals + totalReceivables
+  const totalAssets = totalAccounts + totalOtherAssets + totalGoals + totalReceivables
 
   return {
     totalAccounts,
+    totalOtherAssets,
     totalGoals,
     totalReceivables,
     totalAssets,

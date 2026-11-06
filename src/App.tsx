@@ -7,6 +7,7 @@ import { Recurring } from "./pages/Recurring"
 import { Goals } from "./pages/Goals"
 import { Debts } from "./pages/Debts"
 import { Budget } from "./pages/Budget"
+import { Assets } from "./pages/Assets"
 import { NetWorth } from "./pages/NetWorth"
 import { Reports } from "./pages/Reports"
 import { Settings } from "./pages/Settings"
@@ -34,6 +35,7 @@ function App() {
     subscribeToCategories,
     subscribeToBudgets,
     subscribeToAccounts,
+    subscribeToAssets,
     subscribeToRecurringTransactions,
     subscribeToGoals,
     subscribeToDebts,
@@ -60,6 +62,7 @@ function App() {
         categories: [],
         budgets: [],
         accounts: [],
+        assets: [],
         recurringTransactions: [],
         goals: [],
         debts: [],
@@ -72,6 +75,7 @@ function App() {
           subscribeToCategories(user.uid),
           subscribeToBudgets(user.uid),
           subscribeToAccounts(user.uid),
+          subscribeToAssets(user.uid),
           subscribeToRecurringTransactions(user.uid),
           subscribeToGoals(user.uid),
           subscribeToDebts(user.uid),
@@ -84,7 +88,7 @@ function App() {
       unsubscribeAuth()
       cleanup()
     }
-  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts, subscribeToHealthSnapshots])
+  }, [setUser, subscribeToTransactions, subscribeToCategories, subscribeToBudgets, subscribeToAccounts, subscribeToAssets, subscribeToRecurringTransactions, subscribeToGoals, subscribeToDebts, subscribeToHealthSnapshots])
 
 
   // Auto-seed defaults if empty (migrating to DB-only source)
@@ -127,6 +131,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="accounts" element={<Accounts />} />
+            <Route path="assets" element={<Assets />} />
             <Route path="net-worth" element={<NetWorth />} />
             <Route path="recurring" element={<Recurring />} />
             <Route path="goals" element={<Goals />} />
