@@ -43,4 +43,23 @@ describe('isBackupData', () => {
       accounts: [{ name: 'Cash' }],
     })).toBe(false)
   })
+
+  it('accepts optional assets and health snapshots with ids', () => {
+    expect(isBackupData({
+      ...validBackup,
+      assets: [{ id: 'asset-1', name: 'House' }],
+      healthSnapshots: [{ id: '2026-01', month: '2026-01' }],
+    })).toBe(true)
+  })
+
+  it('rejects malformed optional collections', () => {
+    expect(isBackupData({
+      ...validBackup,
+      assets: { id: 'asset-1' },
+    })).toBe(false)
+    expect(isBackupData({
+      ...validBackup,
+      healthSnapshots: [{ month: '2026-01' }],
+    })).toBe(false)
+  })
 })

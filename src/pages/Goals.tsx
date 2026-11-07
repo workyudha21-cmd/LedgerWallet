@@ -35,7 +35,7 @@ export function Goals() {
   // Calculate total progress
   const totalTarget = goals.reduce((sum, g) => sum + g.targetAmount, 0)
   const totalSaved = goals.reduce((sum, g) => sum + g.currentAmount, 0)
-  const totalProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0
+  const totalProgress = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0
 
   const handleDelete = () => {
       if (deleteId) {
@@ -80,7 +80,7 @@ export function Goals() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sorted.map(goal => {
-            const progress = (goal.currentAmount / goal.targetAmount) * 100
+            const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100)
             const deadlineTimestamp = goal.deadline ? new Date(goal.deadline).getTime() : null
             const isOverdue = deadlineTimestamp !== null && deadlineTimestamp < new Date().getTime() && goal.currentAmount < goal.targetAmount
             

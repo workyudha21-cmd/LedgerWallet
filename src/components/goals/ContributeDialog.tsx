@@ -61,10 +61,21 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
     },
   })
 
+  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount)
+
   async function onSubmit(values: FormValues) {
     if (!user) return
     
     const amount = parseInt(values.amount.replace(/\D/g, ""), 10)
+
+    if (amount > remaining) {
+        form.setError("amount", {
+            message: remaining > 0
+                ? `Maximum contribution is ${formatCurrency(remaining, currency)}`
+                : "This goal is already fully funded",
+        })
+        return
+    }
     
     // Check balance
     const account = accounts.find(a => a.id === values.accountId)
@@ -79,8 +90,6 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
     form.reset()
   }
 
-  const remaining = goal.targetAmount - goal.currentAmount
-
   return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
@@ -92,7 +101,9 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
             <DialogDescription>
               Add funds from your wallet to this goal.
               <br/>
-              Remaining: {formatCurrency(remaining, currency)}
+              {remaining > 0
+                ? `Remaining: ${formatCurrency(remaining, currency)}`
+                : "This goal is fully funded."}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -138,7 +149,7 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Contribute</Button>
+              <Button type="submit" className="w-full" disabled={remaining <= 0}>Contribute</Button>
             </form>
           </Form>
         </DialogContent>

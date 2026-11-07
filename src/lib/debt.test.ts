@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAmortizationSchedule, estimateDebtPayoff, splitDebtPayment } from './debt'
+import { buildAmortizationSchedule, estimateDebtPayoff, estimatePayoffAmount, splitDebtPayment } from './debt'
 import type { Debt } from './store'
 
 describe('splitDebtPayment', () => {
@@ -29,6 +29,46 @@ describe('splitDebtPayment', () => {
       interestAmount: 0,
       principalAmount: 1_000_000,
     })
+  })
+
+  it('caps principal at the remaining balance on payoff', () => {
+    const split = splitDebtPayment(12_120_000, 12_000_000, 12)
+
+    expect(split.interestAmount).toBeCloseTo(120_000)
+    expect(split.principalAmount).toBeCloseTo(12_000_000)
+  })
+
+  it('leaves the monthly interest unpaid when paying only the principal balance', () => {
+    const split = splitDebtPayment(12_000_000, 12_000_000, 12)
+
+    expect(split.interestAmount).toBeCloseTo(120_000)
+    expect(split.principalAmount).toBeCloseTo(11_880_000)
+  })
+
+  it('caps principal and treats the excess as interest on overpayment', () => {
+    const split = splitDebtPayment(13_000_000, 12_000_000, 12)
+
+    expect(split.interestAmount).toBeCloseTo(1_000_000)
+    expect(split.principalAmount).toBeCloseTo(12_000_000)
+  })
+
+  it('caps principal for an interest-free overpayment', () => {
+    const split = splitDebtPayment(13_000_000, 12_000_000)
+
+    expect(split.interestAmount).toBeCloseTo(1_000_000)
+    expect(split.principalAmount).toBeCloseTo(12_000_000)
+  })
+})
+
+describe('estimatePayoffAmount', () => {
+  it('adds one month of interest to the remaining principal', () => {
+    expect(estimatePayoffAmount(12_000_000, 12)).toBe(12_120_000)
+  })
+
+  it('returns the remaining principal when there is no interest', () => {
+    expect(estimatePayoffAmount(12_000_000)).toBe(12_000_000)
+    expect(estimatePayoffAmount(12_000_000, 0)).toBe(12_000_000)
+    expect(estimatePayoffAmount(0, 18)).toBe(0)
   })
 })
 

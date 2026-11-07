@@ -33,7 +33,7 @@ import {
     DEFAULT_FINANCIAL_TARGETS,
     type FinancialTargets
 } from './financialTargets'
-import { splitDebtPayment } from './debt'
+import { estimatePayoffAmount, splitDebtPayment } from './debt'
 
 export type TransactionType = 'income' | 'expense'
 export type TransactionKind = TransactionType | 'transfer' | 'savings'
@@ -103,12 +103,14 @@ export interface Budget {
     userId: string
 }
 
+export type RecurringLinkType = 'debt' | 'asset' | 'goal'
+
 export interface RecurringTransaction {
     id: string
     userId: string
     name: string
     amount: number
-    type: TransactionType
+    type: TransactionType | 'savings'
     category: string
     accountId: string
     frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -116,6 +118,8 @@ export interface RecurringTransaction {
     nextRunDate: string // ISO string
     active: boolean
     lastRunDate?: string
+    linkType?: RecurringLinkType | null
+    linkId?: string | null
 }
 
 export interface FinancialGoal {
@@ -419,8 +423,9 @@ export const useTransactionStore = create<TransactionState>()(
                             const debt = debtSnap.data() as Debt
 
                             if (debt.type === 'payable') {
-                                if (formData.amount > debt.remainingAmount) {
-                                    throw new Error("Amount exceeds remaining debt")
+                                const maxPayment = estimatePayoffAmount(debt.remainingAmount, debt.interestRate)
+                                if (formData.amount > maxPayment) {
+                                    throw new Error("Amount exceeds the estimated payoff")
                                 }
 
                                 const split = debt.interestRate && debt.interestRate > 0
@@ -558,6 +563,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 } catch (error) {
                     console.error("Error deleting transaction: ", error)
+                    alert(`Failed to delete transaction: ${(error as Error).message}`)
                 }
             },
 
@@ -580,8 +586,9 @@ export const useTransactionStore = create<TransactionState>()(
                         if (debtSnap.exists()) {
                             const debt = debtSnap.data() as Debt
                             if (debt.type === 'payable') {
-                                if (newTrans.amount > debt.remainingAmount) {
-                                    throw new Error("Amount exceeds remaining debt")
+                                const maxPayment = estimatePayoffAmount(debt.remainingAmount, debt.interestRate)
+                                if (newTrans.amount > maxPayment) {
+                                    throw new Error("Amount exceeds the estimated payoff")
                                 }
 
                                 const split = debt.interestRate && debt.interestRate > 0
@@ -648,6 +655,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 } catch (error) {
                     console.error("Error updating transaction: ", error)
+                    alert(`Failed to update transaction: ${(error as Error).message}`)
                 }
             },
 
@@ -695,6 +703,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'categories', id))
                 } catch (error) {
                     console.error("Error removing category: ", error)
+                    alert(`Failed to remove category: ${(error as Error).message}`)
                 }
             },
 
@@ -723,6 +732,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'budgets', id))
                 } catch (error) {
                     console.error("Error removing budget: ", error)
+                    alert(`Failed to remove budget: ${(error as Error).message}`)
                 }
             },
 
@@ -733,7 +743,10 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         createdAt: Timestamp.now()
                     })
-                } catch (e) { console.error("Error accounting:", e) }
+                } catch (e) {
+                    console.error("Error adding account:", e)
+                    alert(`Failed to add account: ${(e as Error).message}`)
+                }
             },
             removeAccount: async (id) => {
                 try {
@@ -783,12 +796,18 @@ export const useTransactionStore = create<TransactionState>()(
                     }
 
                     await deleteDoc(doc(db, 'accounts', id))
-                } catch (e) { console.error(e) }
+                } catch (e) {
+                    console.error(e)
+                    alert(`Failed to remove account: ${(e as Error).message}`)
+                }
             },
             editAccount: async (id, updates) => {
                 try {
                     await updateDoc(doc(db, 'accounts', id), updates)
-                } catch (e) { console.error(e) }
+                } catch (e) {
+                    console.error(e)
+                    alert(`Failed to update account: ${(e as Error).message}`)
+                }
             },
 
             addAsset: async (asset, userId) => {
@@ -798,15 +817,22 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         createdAt: Timestamp.now()
                     })
-                } catch (e) { console.error("Error adding asset:", e) }
+                } catch (e) {
+                    console.error("Error adding asset:", e)
+                    alert(`Failed to add asset: ${(e as Error).message}`)
+                }
             },
             editAsset: async (id, updates) => {
                 try {
                     await updateDoc(doc(db, 'assets', id), updates)
-                } catch (e) { console.error("Error editing asset:", e) }
+                } catch (e) {
+                    console.error("Error editing asset:", e)
+                    alert(`Failed to update asset: ${(e as Error).message}`)
+                }
             },
             removeAsset: async (id) => {
                 try {
+                    const asset = get().assets.find(a => a.id === id)
                     const linkedDebts = get().debts.filter(debt => debt.assetId === id)
                     const batch = writeBatch(db)
 
@@ -816,7 +842,30 @@ export const useTransactionStore = create<TransactionState>()(
 
                     batch.delete(doc(db, 'assets', id))
                     await batch.commit()
-                } catch (e) { console.error("Error removing asset:", e) }
+
+                    if (asset?.userId) {
+                        const transactionSnapshot = await getDocs(
+                            query(collection(db, 'transactions'), where('userId', '==', asset.userId))
+                        )
+                        const transactionUpdates = transactionSnapshot.docs.flatMap((transactionDoc) => {
+                            const data = transactionDoc.data()
+                            return data.assetId === id
+                                ? [{ ref: transactionDoc.ref, updates: { assetId: "" } }]
+                                : []
+                        })
+
+                        for (let index = 0; index < transactionUpdates.length; index += 450) {
+                            const unlinkBatch = writeBatch(db)
+                            transactionUpdates.slice(index, index + 450).forEach(({ ref, updates }) => {
+                                unlinkBatch.update(ref, updates)
+                            })
+                            await unlinkBatch.commit()
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error removing asset:", e)
+                    alert(`Failed to remove asset: ${(e as Error).message}`)
+                }
             },
             contributeToAsset: async (contribution, userId) => {
                 const { accounts, assets } = get()
@@ -873,19 +922,28 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         createdAt: Timestamp.now()
                     })
-                } catch (e) { console.error("Error adding recurring:", e) }
+                } catch (e) {
+                    console.error("Error adding recurring:", e)
+                    alert(`Failed to add recurring transaction: ${(e as Error).message}`)
+                }
             },
 
             editRecurringTransaction: async (id, updates) => {
                 try {
                     await updateDoc(doc(db, 'recurring_transactions', id), updates)
-                } catch (e) { console.error("Error editing recurring:", e) }
+                } catch (e) {
+                    console.error("Error editing recurring:", e)
+                    alert(`Failed to update recurring transaction: ${(e as Error).message}`)
+                }
             },
 
             deleteRecurringTransaction: async (id) => {
                 try {
                     await deleteDoc(doc(db, 'recurring_transactions', id))
-                } catch (e) { console.error("Error deleting recurring:", e) }
+                } catch (e) {
+                    console.error("Error deleting recurring:", e)
+                    alert(`Failed to delete recurring transaction: ${(e as Error).message}`)
+                }
             },
 
             subscribeToRecurringTransactions: (userId) => {
@@ -952,19 +1010,61 @@ export const useTransactionStore = create<TransactionState>()(
 
                                 let nextRun = new Date(data.nextRunDate)
                                 if (nextRun > new Date()) return
+                                if (data.amount <= 0) {
+                                    transaction.update(rtRef, { active: false })
+                                    return
+                                }
+                                if (!data.accountId) {
+                                    transaction.update(rtRef, { active: false })
+                                    return
+                                }
+                                if (data.linkType && !data.linkId) {
+                                    transaction.update(rtRef, { active: false })
+                                    return
+                                }
 
                                 const accountRef = data.accountId ? doc(db, 'accounts', data.accountId) : null
                                 const accountSnap = accountRef ? await transaction.get(accountRef) : null
 
+                                const linkCollection = data.linkType === 'debt'
+                                    ? 'debts'
+                                    : data.linkType === 'asset'
+                                        ? 'assets'
+                                        : data.linkType === 'goal'
+                                            ? 'goals'
+                                            : null
+                                const linkRef = linkCollection && data.linkId
+                                    ? doc(db, linkCollection, data.linkId)
+                                    : null
+                                const linkSnap = linkRef ? await transaction.get(linkRef) : null
+                                const linkedData = linkSnap?.exists()
+                                    ? linkSnap.data()
+                                    : null
+
+                                if (data.linkType && data.linkId && !linkedData) {
+                                    transaction.update(rtRef, { active: false })
+                                    return
+                                }
+
+                                let linkRemaining = data.linkType === 'debt' && linkedData
+                                    ? Number(linkedData.remainingAmount) || 0
+                                    : data.linkType === 'goal' && linkedData
+                                        ? Math.max(0, (Number(linkedData.targetAmount) || 0) - (Number(linkedData.currentAmount) || 0))
+                                        : 0
+                                let linkTotalAmount = 0
+                                const linkInterestRate = data.linkType === 'debt' && linkedData
+                                    ? Number(linkedData.interestRate) || 0
+                                    : 0
+
                                 let balanceDelta = 0
                                 let lastProcessed = data.nextRunDate
                                 let occurrences = 0
+                                let exhausted = false
                                 const MAX_CATCH_UP = 400
                                 const cutoff = new Date()
 
                                 while (nextRun <= cutoff && occurrences < MAX_CATCH_UP) {
-                                    const newTransRef = doc(collection(db, 'transactions'))
-                                    transaction.set(newTransRef, {
+                                    const transactionData: Record<string, unknown> = {
                                         amount: data.amount,
                                         type: data.type,
                                         category: data.category,
@@ -973,23 +1073,100 @@ export const useTransactionStore = create<TransactionState>()(
                                         userId: data.userId || userId,
                                         accountId: data.accountId,
                                         createdAt: Timestamp.now()
-                                    })
+                                    }
 
-                                    balanceDelta += data.type === 'income' ? data.amount : -data.amount
+                                    if (data.linkType === 'asset' || data.linkType === 'goal') {
+                                        transactionData.type = 'savings'
+                                        transactionData.category = data.linkType === 'asset'
+                                            ? 'Asset Contribution'
+                                            : 'Goal Contribution'
+                                    } else if (data.linkType === 'debt') {
+                                        transactionData.type = 'expense'
+                                        transactionData.category = data.category || 'Debt Payment'
+                                    }
+
+                                    if (data.linkType === 'debt' && data.linkId && linkedData) {
+                                        if (linkRemaining <= 0) {
+                                            exhausted = true
+                                            break
+                                        }
+
+                                        const payment = Math.min(
+                                            data.amount,
+                                            estimatePayoffAmount(linkRemaining, linkInterestRate)
+                                        )
+                                        const split = splitDebtPayment(payment, linkRemaining, linkInterestRate)
+                                        transactionData.amount = payment
+                                        transactionData.debtId = data.linkId
+                                        transactionData.interestAmount = split.interestAmount
+                                        transactionData.principalAmount = split.principalAmount
+
+                                        linkRemaining = Math.max(0, linkRemaining - split.principalAmount)
+                                    } else if (data.linkType === 'goal' && data.linkId && linkedData) {
+                                        if (linkRemaining <= 0) {
+                                            exhausted = true
+                                            break
+                                        }
+
+                                        const contribution = Math.min(data.amount, linkRemaining)
+                                        transactionData.amount = contribution
+                                        transactionData.goalId = data.linkId
+
+                                        linkRemaining -= contribution
+                                        linkTotalAmount += contribution
+                                    } else if (data.linkType === 'asset' && data.linkId && linkedData) {
+                                        transactionData.assetId = data.linkId
+                                        linkTotalAmount += data.amount
+                                    }
+
+                                    const newTransRef = doc(collection(db, 'transactions'))
+                                    transaction.set(newTransRef, transactionData)
+
+                                    const postedAmount = Number(transactionData.amount)
+                                    balanceDelta += transactionData.type === 'income' ? postedAmount : -postedAmount
                                     lastProcessed = nextRun.toISOString()
                                     nextRun = getNextRunDate(nextRun, data.frequency)
                                     occurrences++
+
+                                    if (data.linkType && linkRemaining <= 0 && (data.linkType === 'debt' || data.linkType === 'goal')) {
+                                        exhausted = true
+                                        break
+                                    }
                                 }
 
-                                if (occurrences === 0) return
+                                if (occurrences === 0) {
+                                    if (exhausted) {
+                                        transaction.update(rtRef, {
+                                            active: false,
+                                            lastRunDate: lastProcessed
+                                        })
+                                    }
+                                    return
+                                }
 
                                 if (accountRef && accountSnap?.exists() && balanceDelta !== 0) {
                                     transaction.update(accountRef, { balance: increment(balanceDelta) })
                                 }
 
+                                if (linkRef && linkedData && data.linkType === 'debt') {
+                                    transaction.update(linkRef, {
+                                        remainingAmount: Math.max(0, linkRemaining),
+                                        status: linkRemaining <= 0 ? 'paid' : 'active'
+                                    })
+                                } else if (linkRef && linkedData && data.linkType === 'goal') {
+                                    transaction.update(linkRef, {
+                                        currentAmount: increment(linkTotalAmount)
+                                    })
+                                } else if (linkRef && linkedData && data.linkType === 'asset') {
+                                    transaction.update(linkRef, {
+                                        currentValue: increment(linkTotalAmount)
+                                    })
+                                }
+
                                 transaction.update(rtRef, {
                                     lastRunDate: lastProcessed,
-                                    nextRunDate: nextRun.toISOString()
+                                    nextRunDate: nextRun.toISOString(),
+                                    ...(exhausted ? { active: false } : {})
                                 })
                             })
                         } catch (e) {
@@ -1189,19 +1366,28 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         createdAt: Timestamp.now()
                     })
-                } catch (e) { console.error("Error adding goal:", e) }
+                } catch (e) {
+                    console.error("Error adding goal:", e)
+                    alert(`Failed to add goal: ${(e as Error).message}`)
+                }
             },
 
             editGoal: async (id, updates) => {
                 try {
                     await updateDoc(doc(db, 'goals', id), updates)
-                } catch (e) { console.error("Error editing goal:", e) }
+                } catch (e) {
+                    console.error("Error editing goal:", e)
+                    alert(`Failed to update goal: ${(e as Error).message}`)
+                }
             },
 
             deleteGoal: async (id) => {
                 try {
                     await deleteDoc(doc(db, 'goals', id))
-                } catch (e) { console.error("Error deleting goal:", e) }
+                } catch (e) {
+                    console.error("Error deleting goal:", e)
+                    alert(`Failed to delete goal: ${(e as Error).message}`)
+                }
             },
 
             contributeToGoal: async (goalId, accountId, amount, userId) => {
@@ -1212,6 +1398,10 @@ export const useTransactionStore = create<TransactionState>()(
 
                     if (!account) throw new Error("Account not found")
                     if (!goal) throw new Error("Goal not found")
+                    if (amount <= 0) throw new Error("Amount must be greater than 0")
+                    if (amount > Math.max(0, goal.targetAmount - goal.currentAmount)) {
+                        throw new Error("Contribution exceeds the remaining goal amount")
+                    }
                     if (account.balance < amount) throw new Error("Insufficient funds")
 
                     const batch = writeBatch(db)
@@ -1264,19 +1454,28 @@ export const useTransactionStore = create<TransactionState>()(
                         userId,
                         createdAt: Timestamp.now()
                     })
-                } catch (e) { console.error("Error adding debt:", e) }
+                } catch (e) {
+                    console.error("Error adding debt:", e)
+                    alert(`Failed to add debt: ${(e as Error).message}`)
+                }
             },
 
             editDebt: async (id, updates) => {
                 try {
                     await updateDoc(doc(db, 'debts', id), updates)
-                } catch (e) { console.error("Error editing debt:", e) }
+                } catch (e) {
+                    console.error("Error editing debt:", e)
+                    alert(`Failed to update debt: ${(e as Error).message}`)
+                }
             },
 
             deleteDebt: async (id) => {
                 try {
                     await deleteDoc(doc(db, 'debts', id))
-                } catch (e) { console.error("Error deleting debt:", e) }
+                } catch (e) {
+                    console.error("Error deleting debt:", e)
+                    alert(`Failed to delete debt: ${(e as Error).message}`)
+                }
             },
 
             payDebt: async (debtId, amount, accountId, userId) => {
@@ -1293,8 +1492,11 @@ export const useTransactionStore = create<TransactionState>()(
                         // If paying debt (expense), check balance
                         throw new Error("Insufficient funds to pay debt")
                     }
-                    if (amount > debt.remainingAmount) {
-                        throw new Error("Payment amount exceeds remaining debt")
+                    const maxPayment = debt.type === 'payable'
+                        ? estimatePayoffAmount(debt.remainingAmount, debt.interestRate)
+                        : debt.remainingAmount
+                    if (amount > maxPayment) {
+                        throw new Error("Payment amount exceeds the maximum allowed")
                     }
 
                     const batch = writeBatch(db)

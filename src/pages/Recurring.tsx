@@ -1,9 +1,9 @@
 import { AddRecurringTransactionDialog } from "@/components/recurring/AddRecurringTransactionDialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { useTransactionStore } from "@/lib/store"
+import { useTransactionStore, type RecurringTransaction } from "@/lib/store"
 import { formatCurrency } from "@/lib/utils"
 import { format } from "date-fns"
-import { CalendarClock, Pencil, Play, Pause, Trash, AlertCircle } from "lucide-react"
+import { CalendarClock, Pencil, Play, Pause, Trash, AlertCircle, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "../components/ui/badge"
 import {
@@ -19,7 +19,7 @@ import {
 import { useState } from "react"
 
 export function Recurring() {
-  const { recurringTransactions, currency, editRecurringTransaction, deleteRecurringTransaction, accounts } = useTransactionStore()
+  const { recurringTransactions, currency, editRecurringTransaction, deleteRecurringTransaction, accounts, debts, assets, goals } = useTransactionStore()
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   // Sort by next run date
@@ -27,8 +27,12 @@ export function Recurring() {
     new Date(a.nextRunDate).getTime() - new Date(b.nextRunDate).getTime()
   )
 
-  const handleToggle = (id: string, currentStatus: boolean) => {
-      editRecurringTransaction(id, { active: !currentStatus })
+  const handleToggle = (item: RecurringTransaction) => {
+      if (!item.active && !item.accountId) {
+          alert("Select an account in Edit before resuming this rule.")
+          return
+      }
+      editRecurringTransaction(item.id, { active: !item.active })
   }
 
   const handleDelete = () => {
@@ -40,6 +44,39 @@ export function Recurring() {
 
   const getAccountName = (accId: string) => {
       return accounts.find(a => a.id === accId)?.name || 'Unknown Account'
+  }
+
+  const getLinkLabel = (item: RecurringTransaction) => {
+      if (!item.linkType || !item.linkId) return null
+
+      if (item.linkType === 'debt') {
+          const debt = debts.find(d => d.id === item.linkId)
+          return debt ? `Debt: ${debt.personName}` : 'Linked debt removed'
+      }
+
+      if (item.linkType === 'asset') {
+          const asset = assets.find(a => a.id === item.linkId)
+          return asset ? `Asset: ${asset.name}` : 'Linked asset removed'
+      }
+
+      const goal = goals.find(g => g.id === item.linkId)
+      return goal ? `Goal: ${goal.name}` : 'Linked goal removed'
+  }
+
+  const isLinkCompleted = (item: RecurringTransaction) => {
+      if (!item.linkType || !item.linkId) return false
+
+      if (item.linkType === 'debt') {
+          const debt = debts.find(d => d.id === item.linkId)
+          return !debt || debt.status === 'paid' || debt.remainingAmount <= 0
+      }
+
+      if (item.linkType === 'goal') {
+          const goal = goals.find(g => g.id === item.linkId)
+          return !goal || goal.currentAmount >= goal.targetAmount
+      }
+
+      return !assets.some(a => a.id === item.linkId)
   }
 
   return (
@@ -58,10 +95,12 @@ export function Recurring() {
                     <div className="flex justify-between items-start">
                         <div>
                             <CardTitle className="text-lg font-bold">{item.name}</CardTitle>
-                            <CardDescription className="capitalize">{item.frequency} - {item.type}</CardDescription>
+                            <CardDescription className="capitalize">
+                                {item.frequency} - {item.type === 'savings' ? 'savings contribution' : item.type}
+                            </CardDescription>
                         </div>
-                        <Badge variant={item.active ? "default" : "secondary"}>
-                            {item.active ? "Active" : "Paused"}
+                        <Badge variant={isLinkCompleted(item) ? "secondary" : item.active ? "default" : "secondary"}>
+                            {isLinkCompleted(item) ? "Completed" : item.active ? "Active" : "Paused"}
                         </Badge>
                     </div>
                 </CardHeader>
@@ -81,17 +120,25 @@ export function Recurring() {
                             <AlertCircle className="h-4 w-4" />
                             Account: {getAccountName(item.accountId)}
                         </div>
+                        {getLinkLabel(item) && (
+                            <div className="flex items-center gap-2">
+                                <Link2 className="h-4 w-4" />
+                                {getLinkLabel(item)}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                        <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleToggle(item.id, item.active)}
-                        >
-                            {item.active ? <Pause className="h-4 w-4 mr-1"/> : <Play className="h-4 w-4 mr-1"/>}
-                            {item.active ? 'Pause' : 'Resume'}
-                        </Button>
+                        {!isLinkCompleted(item) && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggle(item)}
+                            >
+                                {item.active ? <Pause className="h-4 w-4 mr-1"/> : <Play className="h-4 w-4 mr-1"/>}
+                                {item.active ? 'Pause' : 'Resume'}
+                            </Button>
+                        )}
                         <AddRecurringTransactionDialog
                             recurring={item}
                             trigger={

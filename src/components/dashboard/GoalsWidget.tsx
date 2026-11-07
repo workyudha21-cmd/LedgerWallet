@@ -32,7 +32,7 @@ export function GoalsWidget() {
                     <p className="text-sm text-muted-foreground">No active goals found.</p>
                 ) : (
                     activeGoals.map(goal => {
-                        const progress = (goal.currentAmount / goal.targetAmount) * 100
+                        const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100)
                         return (
                             <div key={goal.id} className="space-y-1">
                                 <div className="flex justify-between text-sm">

@@ -29,6 +29,7 @@ export function Settings() {
         resetData,
         transactions,
         accounts,
+        assets,
         budgets,
         recurringTransactions,
         goals,
@@ -46,6 +47,7 @@ export function Settings() {
     const hasFinancialData =
         transactions.length > 0 ||
         accounts.length > 0 ||
+        assets.length > 0 ||
         budgets.length > 0 ||
         recurringTransactions.length > 0 ||
         goals.length > 0 ||
@@ -163,7 +165,7 @@ export function Settings() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This action cannot be undone. This will permanently delete your transactions, accounts, budgets, recurring transactions, goals, debts, and financial health history from our servers. Your custom categories will be kept.
+                                                This action cannot be undone. This will permanently delete your transactions, accounts, assets, budgets, recurring transactions, goals, debts, and financial health history from our servers. Your custom categories will be kept.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>

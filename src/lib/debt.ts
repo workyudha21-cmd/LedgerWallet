@@ -24,26 +24,52 @@ export interface DebtPayoffProjection {
   hasUnpayableDebt: boolean
 }
 
+export function estimatePayoffAmount(
+  remainingAmount: number,
+  annualInterestRate?: number
+): number {
+  const remaining = Math.max(0, remainingAmount)
+  const rate = annualInterestRate && annualInterestRate > 0 ? annualInterestRate : 0
+
+  if (remaining === 0 || rate === 0) return remaining
+
+  return Math.ceil(remaining * (1 + rate / 100 / 12))
+}
+
 export function splitDebtPayment(
   amount: number,
   remainingAmount: number,
   annualInterestRate?: number
 ): DebtPaymentSplit {
+  const payment = Math.max(0, amount)
+  const remaining = Math.max(0, remainingAmount)
   const rate = annualInterestRate && annualInterestRate > 0 ? annualInterestRate : 0
 
-  if (rate === 0 || amount <= 0) {
+  if (payment === 0) {
+    return { interestAmount: 0, principalAmount: 0 }
+  }
+
+  if (remaining === 0) {
+    return { interestAmount: 0, principalAmount: payment }
+  }
+
+  if (rate === 0) {
+    const principalAmount = Math.min(payment, remaining)
     return {
-      interestAmount: 0,
-      principalAmount: Math.max(0, amount),
+      interestAmount: payment - principalAmount,
+      principalAmount,
     }
   }
 
-  const monthlyInterest = remainingAmount * (rate / 100 / 12)
-  const interestAmount = Math.min(amount, Math.max(0, monthlyInterest))
+  const monthlyInterest = remaining * (rate / 100 / 12)
+  const principalAmount = Math.min(
+    remaining,
+    Math.max(0, payment - monthlyInterest)
+  )
 
   return {
-    interestAmount,
-    principalAmount: amount - interestAmount,
+    interestAmount: payment - principalAmount,
+    principalAmount,
   }
 }
 

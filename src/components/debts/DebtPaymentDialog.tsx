@@ -27,8 +27,8 @@ import { formatCurrencyInput, formatCurrency } from "@/lib/utils"
 // import { Banknote } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Debt } from "@/lib/store"
-import { splitDebtPayment } from "@/lib/debt"
-import { useState } from "react"
+import { estimatePayoffAmount, splitDebtPayment } from "@/lib/debt"
+import { useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -54,12 +54,18 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
     const user = useAuthStore((state) => state.user)
 
     const isPayable = debt.type === 'payable' // I owe money
+    const estimatedPayoff = isPayable
+        ? estimatePayoffAmount(debt.remainingAmount, debt.interestRate)
+        : debt.remainingAmount
+    const defaultPayment = isPayable && debt.minimumPayment && debt.minimumPayment > 0
+        ? Math.min(debt.minimumPayment, estimatedPayoff)
+        : estimatedPayoff
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             accountId: "",
-            amount: formatCurrencyInput(debt.remainingAmount.toString()),
+            amount: formatCurrencyInput(defaultPayment.toString()),
         },
     })
 
@@ -69,13 +75,29 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
         ? splitDebtPayment(paymentAmount, debt.remainingAmount, debt.interestRate)
         : null
 
+    useEffect(() => {
+        if (!open) return
+
+        form.reset({
+            accountId: form.getValues("accountId"),
+            amount: formatCurrencyInput(defaultPayment.toString()),
+        })
+    }, [open, defaultPayment, form])
+
     async function onSubmit(values: FormValues) {
         if (!user) return
 
         const amount = parseInt(values.amount.replace(/\D/g, ""), 10)
 
-        if (amount > debt.remainingAmount) {
-            form.setError("amount", { message: "Payment exceeds remaining debt" })
+        if (amount <= 0) {
+            form.setError("amount", { message: "Amount must be greater than 0" })
+            return
+        }
+
+        if (amount > estimatedPayoff) {
+            form.setError("amount", {
+                message: `Amount exceeds the maximum payment of ${formatCurrency(estimatedPayoff, currency)}`,
+            })
             return
         }
 
@@ -108,7 +130,13 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                             ? `Recording payment to ${debt.personName}`
                             : `Recording payment from ${debt.personName}`}
                         <br />
-                        Remaining: {formatCurrency(debt.remainingAmount, currency)}
+                        Remaining principal: {formatCurrency(debt.remainingAmount, currency)}
+                        {isPayable && estimatedPayoff > debt.remainingAmount && (
+                            <>
+                                <br />
+                                Estimated payoff: {formatCurrency(estimatedPayoff, currency)}
+                            </>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -150,6 +178,20 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                                             onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
                                         />
                                     </FormControl>
+                                    {isPayable && estimatedPayoff > debt.remainingAmount && (
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            className="h-auto p-0 text-xs"
+                                            onClick={() => form.setValue(
+                                                "amount",
+                                                formatCurrencyInput(estimatedPayoff.toString()),
+                                                { shouldValidate: true }
+                                            )}
+                                        >
+                                            Use estimated payoff ({formatCurrency(estimatedPayoff, currency)})
+                                        </Button>
+                                    )}
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -158,6 +200,12 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                             <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
                                 <p>Estimated interest: {formatCurrency(split.interestAmount, currency)}</p>
                                 <p>Principal: {formatCurrency(split.principalAmount, currency)}</p>
+                                <p>
+                                    Remaining after payment: {formatCurrency(
+                                        Math.max(0, debt.remainingAmount - split.principalAmount),
+                                        currency
+                                    )}
+                                </p>
                             </div>
                         )}
                         <Button type="submit" className="w-full">

@@ -277,6 +277,25 @@ describe('calculateFinancialHealth', () => {
     expect(health.savingsRatio).toBeCloseTo(69)
   })
 
+  it('does not double-count linked debt payments in the emergency fund denominator', () => {
+    const health = calculateFinancialHealth(
+      [account(10_000_000)],
+      [
+        transaction('income', 10_000_000, 'Salary'),
+        transaction('expense', 3_000_000, 'Housing (Rent/Mortgage)', {
+          debtId: 'debt-housing',
+          interestAmount: 100_000,
+          principalAmount: 2_900_000,
+        }),
+      ],
+      [debt({ totalAmount: 6_000_000, remainingAmount: 5_000_000, minimumPayment: 1_000_000 })],
+      [],
+      [expenseCategory('Housing (Rent/Mortgage)', 'essential')]
+    )
+
+    expect(health.emergencyFundRatio).toBeCloseTo(10)
+  })
+
   it('uses user-configured financial targets', () => {
     const health = calculateFinancialHealth(
       [account(10_000_000)],

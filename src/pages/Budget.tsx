@@ -24,7 +24,7 @@ import { useAuthStore } from "@/lib/auth-store"
 import { useState } from "react"
 import { EXPENSE_CATEGORIES } from "@/lib/constants"
 import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
-import { Bar, BarChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer, Cell, Legend } from "recharts"
 
 export function Budget() {
     const { budgets, transactions, currency, categories, addBudget, removeBudget } = useTransactionStore()
@@ -209,19 +209,13 @@ export function Budget() {
                                         return null;
                                     }}
                                 />
-                                <Bar dataKey="amount" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={20} stackId="a" />
-                                <Bar dataKey="spent" radius={[0, 4, 4, 0]} barSize={20} stackId="a" className="-ml-[20px]">
+                                <Bar dataKey="amount" name="Budget" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={12} />
+                                <Bar dataKey="spent" name="Spent" fill="#22c55e" radius={[0, 4, 4, 0]} barSize={12}>
                                     {budgetData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.spent > entry.amount ? "#ef4444" : "#22c55e"} />
                                     ))}
                                 </Bar>
-                                {/* We actually want grouped bars or stacked? 
-                                    Let's try a simple trick: Just render 'spent' bar. 
-                                    Wait, usually Budget vs Actual is side-by-side or overlay.
-                                    Let's do separate bars for clarity, or just List View is enough?
-                                    Actually the Chart might be redundant if the List has progress bars.
-                                    Let's strictly show "Top Spenders" here.
-                                */}
+                                <Legend wrapperStyle={{ fontSize: 12 }} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>

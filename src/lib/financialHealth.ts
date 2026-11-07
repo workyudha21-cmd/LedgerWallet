@@ -91,8 +91,12 @@ export function calculateFinancialHealth(
     const groupFor = (category: string) =>
         getCategoryGroupFromMap(category, categoryGroups)
 
+    const nonDebtExpenses90Days = consumptionExpenses
+        .filter(t => !t.debtId)
+        .reduce((sum, t) => sum + getConsumptionAmount(t), 0)
+
     const essentialExpenses90Days = consumptionExpenses
-        .filter(t => groupFor(t.category) === 'essential')
+        .filter(t => !t.debtId && groupFor(t.category) === 'essential')
         .reduce((sum, t) => sum + getConsumptionAmount(t), 0)
 
     const discretionaryExpenses90Days = consumptionExpenses
@@ -101,7 +105,7 @@ export function calculateFinancialHealth(
 
     const essentialExpenseBase = essentialExpenses90Days > 0
         ? essentialExpenses90Days
-        : expense90Days
+        : nonDebtExpenses90Days
     const monthlyEssentialExpenses = essentialExpenseBase / MONTHS_IN_WINDOW
     const monthlyEssentialWithDebt = monthlyEssentialExpenses + monthlyDebtPayments
     const emergencyFundRatio = monthlyEssentialWithDebt > 0

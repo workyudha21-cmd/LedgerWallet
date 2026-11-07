@@ -50,6 +50,7 @@ interface TransactionFormProps {
 
 import { formatCurrency, formatCurrencyInput, cn } from "@/lib/utils"
 import { useTransactionStore } from "@/lib/store"
+import { estimatePayoffAmount } from "@/lib/debt"
 
 export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" }: TransactionFormProps) {
   const { categories, accounts, debts, currency } = useTransactionStore()
@@ -84,9 +85,14 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
     const amount = parseInt(values.amount.replace(/\D/g, ""), 10)
     const linkedDebt = activePayables.find(debt => debt.id === values.debtId)
 
-    if (values.type === "expense" && linkedDebt && amount > linkedDebt.remainingAmount) {
-      form.setError("amount", { message: "Amount exceeds the remaining debt." })
-      return
+    if (values.type === "expense" && linkedDebt) {
+      const maxPayment = estimatePayoffAmount(linkedDebt.remainingAmount, linkedDebt.interestRate)
+      if (amount > maxPayment) {
+        form.setError("amount", {
+          message: `Amount exceeds the estimated payoff of ${formatCurrency(maxPayment, currency)}.`,
+        })
+        return
+      }
     }
 
     onSubmit(values)

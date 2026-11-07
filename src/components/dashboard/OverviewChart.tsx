@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 import { useTransactionStore } from "@/lib/store"
 import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
@@ -34,6 +34,7 @@ export function OverviewChart() {
     <Card className="col-span-4 hover:shadow-md transition-shadow">
       <CardHeader>
         <CardTitle>Overview</CardTitle>
+        <CardDescription>Net income minus consumption expenses, last 6 months</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>

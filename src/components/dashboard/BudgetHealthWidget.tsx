@@ -23,6 +23,7 @@ export function BudgetHealthWidget() {
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <PieChart className="h-4 w-4 text-muted-foreground" />
                         Budget Health
+                        <span className="text-xs font-normal text-muted-foreground">This month</span>
                     </CardTitle>
                     <Button variant="ghost" size="sm" asChild className="h-8 px-2 text-xs">
                         <Link to="/budget">Manage <ArrowRight className="ml-1 h-3 w-3" /></Link>
@@ -60,6 +61,7 @@ export function BudgetHealthWidget() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <PieChart className="h-4 w-4 text-muted-foreground" />
                     Budget Health
+                    <span className="text-xs font-normal text-muted-foreground">This month</span>
                 </CardTitle>
                 <Button variant="ghost" size="sm" asChild className="h-8 px-2 text-xs">
                     <Link to="/budget">Manage <ArrowRight className="ml-1 h-3 w-3" /></Link>

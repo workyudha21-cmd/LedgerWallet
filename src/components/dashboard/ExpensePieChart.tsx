@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
 import { getConsumptionAmount, isConsumptionExpense } from "@/lib/transaction-utils"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
@@ -40,6 +40,7 @@ export function ExpensePieChart() {
     <Card className="col-span-4 md:col-span-3 hover:shadow-md transition-shadow">
       <CardHeader>
         <CardTitle>Expense Breakdown</CardTitle>
+        <CardDescription>All time · consumption expenses only</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         {expenseData.length === 0 ? (

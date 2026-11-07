@@ -31,7 +31,7 @@ interface AssetCardProps {
 }
 
 export function AssetCard({ asset, currency }: AssetCardProps) {
-  const { debts, removeAsset } = useTransactionStore()
+  const { debts, transactions, removeAsset } = useTransactionStore()
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
 
@@ -40,11 +40,13 @@ export function AssetCard({ asset, currency }: AssetCardProps) {
     .reduce((sum, debt) => sum + debt.remainingAmount, 0)
   const equity = asset.currentValue - linkedDebt
 
-  const hasPurchasePrice = Boolean(asset.purchasePrice && asset.purchasePrice > 0)
-  const gain = hasPurchasePrice ? asset.currentValue - (asset.purchasePrice || 0) : 0
-  const gainPercentage = hasPurchasePrice
-    ? (gain / (asset.purchasePrice || 1)) * 100
-    : 0
+  const contributions = transactions
+    .filter(transaction => transaction.assetId === asset.id)
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0)
+  const costBasis = (asset.purchasePrice || 0) + contributions
+  const hasCostBasis = costBasis > 0
+  const gain = hasCostBasis ? asset.currentValue - costBasis : 0
+  const gainPercentage = hasCostBasis ? (gain / costBasis) * 100 : 0
 
   const icon = asset.category === "Vehicle"
     ? <Car className="h-4 w-4" />
@@ -84,10 +86,18 @@ export function AssetCard({ asset, currency }: AssetCardProps) {
         </CardHeader>
         <CardContent className="space-y-1">
           <div className="text-2xl font-bold">{formatCurrency(asset.currentValue, currency)}</div>
-          {hasPurchasePrice && (
-            <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-              {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
-            </p>
+          {hasCostBasis && (
+            <>
+              <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                {gain >= 0 ? "+" : ""}{formatCurrency(gain, currency)} ({gainPercentage.toFixed(1)}%)
+                <span className="text-muted-foreground"> vs cost basis</span>
+              </p>
+              {contributions > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Cost basis: {formatCurrency(costBasis, currency)}
+                </p>
+              )}
+            </>
           )}
           <p className="text-xs capitalize text-muted-foreground">{asset.category} Asset</p>
           {asset.valuationDate && (
@@ -129,7 +139,7 @@ export function AssetCard({ asset, currency }: AssetCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this asset?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {asset.name}. Linked debts will remain but will no longer be connected to this asset.
+              This will permanently delete {asset.name}. Linked debts will remain but will no longer be connected to this asset. Past contribution transactions will stay in history but will be unlinked.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

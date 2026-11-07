@@ -30,7 +30,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(balance, currency)}</div>
-          <p className="text-xs text-muted-foreground">Total Assets</p>
+          <p className="text-xs text-muted-foreground">Account balances</p>
         </CardContent>
       </Card>
       <Card className="hover:shadow-md transition-shadow">
@@ -40,6 +40,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-emerald-500">{formatCurrency(income, currency)}</div>
+          <p className="text-xs text-muted-foreground">All time</p>
         </CardContent>
       </Card>
       <Card className="hover:shadow-md transition-shadow">
@@ -49,7 +50,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-500">{formatCurrency(expense, currency)}</div>
-          <p className="text-xs text-muted-foreground">Consumption expenses</p>
+          <p className="text-xs text-muted-foreground">All time · consumption</p>
         </CardContent>
       </Card>
       <Card className="hover:shadow-md transition-shadow">
@@ -61,7 +62,7 @@ export function SummaryCards() {
           <div className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
             {cashFlow >= 0 ? '+' : ''}{formatCurrency(cashFlow, currency)}
           </div>
-          <p className="text-xs text-muted-foreground">Income - Expense</p>
+          <p className="text-xs text-muted-foreground">Income − consumption expenses</p>
         </CardContent>
       </Card>
     </div>

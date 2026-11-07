@@ -41,6 +41,7 @@ export function BackupRestore() {
   const hasData =
     transactions.length > 0 ||
     accounts.length > 0 ||
+    assets.length > 0 ||
     budgets.length > 0 ||
     recurringTransactions.length > 0 ||
     goals.length > 0 ||
