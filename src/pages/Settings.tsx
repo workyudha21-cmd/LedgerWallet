@@ -96,14 +96,14 @@ export function Settings() {
                         <CardDescription>Customize your experience.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Theme</label>
                                 <p className="text-xs text-muted-foreground">Switch between light and dark mode.</p>
                             </div>
                             <ModeToggle />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Currency</label>
                                 <p className="text-xs text-muted-foreground">
@@ -114,12 +114,12 @@ export function Settings() {
                             </div>
                             <CurrencyToggle disabled={hasFinancialData} />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Categories</label>
                                 <p className="text-xs text-muted-foreground">Manage transaction categories.</p>
                             </div>
-                            <div className="w-[180px]">
+                            <div className="w-full sm:w-[180px]">
                                 <CategoryManager />
                             </div>
                         </div>
@@ -133,7 +133,7 @@ export function Settings() {
                         <CardDescription>Control your data.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Export Data</label>
                                 <p className="text-xs text-muted-foreground">Download your transaction history.</p>
@@ -141,7 +141,7 @@ export function Settings() {
                             <ExportDialog />
                         </div>
 
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Import CSV</label>
                                 <p className="text-xs text-muted-foreground">
@@ -151,7 +151,7 @@ export function Settings() {
                             <CsvImport />
                         </div>
 
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-0.5">
                                 <label className="text-sm font-medium">Backup & Restore</label>
                                 <p className="text-xs text-muted-foreground">

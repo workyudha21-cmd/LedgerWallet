@@ -339,9 +339,9 @@ export function Budget() {
                                         month.key === selectedMonth && "border-primary/40 bg-muted/50"
                                     )}
                                 >
-                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                    <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                                         <span className="font-medium">{month.label}</span>
-                                        <span className={month.percentage > 100 ? "text-red-600" : "text-muted-foreground"}>
+                                        <span className={`text-left sm:text-right ${month.percentage > 100 ? "text-red-600" : "text-muted-foreground"}`}>
                                             {formatCurrency(month.spent, currency)} / {formatCurrency(totalBudget, currency)}
                                         </span>
                                     </div>
@@ -373,12 +373,12 @@ export function Budget() {
                         <Card key={budget.id} className="relative overflow-hidden group hover:shadow-lg transition-all">
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${colorClass}`} />
                             <CardHeader className="pb-2 pl-6">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-lg">{budget.category}</CardTitle>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <CardTitle className="truncate text-lg">{budget.category}</CardTitle>
                                         <CardDescription>{formatCurrency(budget.amount, currency)} Limit</CardDescription>
                                     </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex shrink-0 gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(budget)}>
                                             <Edit2 className="h-4 w-4" />
                                         </Button>

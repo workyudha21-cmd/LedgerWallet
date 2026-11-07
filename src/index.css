@@ -69,6 +69,12 @@
   }
 }
 
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 @layer utilities {
   .animate-blob {
     animation: blob 7s infinite;
@@ -78,6 +84,80 @@
   }
   .animation-delay-4000 {
     animation-delay: 4s;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 9s ease-in-out infinite;
+    animation-delay: 1.5s;
+  }
+  .animate-fade-up {
+    animation: fade-up 0.8s ease-out both;
+  }
+  .animate-fade-in {
+    animation: fade-in 1s ease-out both;
+  }
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 7s ease infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+details[open] .faq-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-blob,
+  .animate-float,
+  .animate-float-slow,
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-gradient {
+    animation: none !important;
   }
 }
 

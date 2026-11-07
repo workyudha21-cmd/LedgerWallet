@@ -2,7 +2,7 @@
   "name": "Ledger Wallet",
   "short_name": "LedgerWallet",
   "description": "Manage your finances with ease",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

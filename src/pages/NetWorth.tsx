@@ -278,15 +278,17 @@ export function NetWorth() {
                                 return (
                                     <div key={asset.id} className="space-y-1 border-b pb-2 last:border-0 last:pb-0">
                                         <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-center gap-2">
-                                                {asset.category === "Vehicle"
-                                                    ? <Car className="h-4 w-4 text-muted-foreground" />
-                                                    : asset.category === "Property"
-                                                        ? <Home className="h-4 w-4 text-muted-foreground" />
-                                                        : <TrendingUp className="h-4 w-4 text-muted-foreground" />}
-                                                <div>
-                                                    <p className="text-sm font-medium">{asset.name}</p>
-                                                    <p className="text-xs text-muted-foreground">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <span className="shrink-0">
+                                                    {asset.category === "Vehicle"
+                                                        ? <Car className="h-4 w-4 text-muted-foreground" />
+                                                        : asset.category === "Property"
+                                                            ? <Home className="h-4 w-4 text-muted-foreground" />
+                                                            : <TrendingUp className="h-4 w-4 text-muted-foreground" />}
+                                                </span>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium">{asset.name}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">
                                                         {asset.category}
                                                         {asset.valuationDate
                                                             ? ` · valued ${format(parseISO(asset.valuationDate), "PP")}`
@@ -294,7 +296,7 @@ export function NetWorth() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="shrink-0 text-right">
                                                 <p className="font-medium">{formatCurrency(asset.currentValue, currency)}</p>
                                                 {gain !== null && (
                                                     <p className={`text-xs ${gain >= 0 ? "text-emerald-500" : "text-red-500"}`}>
@@ -304,7 +306,7 @@ export function NetWorth() {
                                             </div>
                                         </div>
                                         {linkedDebt > 0 && (
-                                            <div className="flex justify-between pl-6 text-xs text-muted-foreground">
+                                            <div className="flex flex-col gap-1 pl-6 text-xs text-muted-foreground sm:flex-row sm:justify-between">
                                                 <span>Linked debt: {formatCurrency(linkedDebt, currency)}</span>
                                                 <span>Equity: {formatCurrency(equity, currency)}</span>
                                             </div>
@@ -327,14 +329,14 @@ export function NetWorth() {
                         ) : (
                             includedAccounts.map((account) => (
                                 <div key={account.id} className="flex items-center justify-between gap-3 border-b pb-2 last:border-0 last:pb-0">
-                                    <div className="flex items-center gap-2">
-                                        <Wallet className="h-4 w-4 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-sm font-medium">{account.name}</p>
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <Wallet className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium">{account.name}</p>
                                             <p className="text-xs text-muted-foreground">{account.type}</p>
                                         </div>
                                     </div>
-                                    <span className="font-medium">{formatCurrency(account.balance, currency)}</span>
+                                    <span className="shrink-0 font-medium">{formatCurrency(account.balance, currency)}</span>
                                 </div>
                             ))
                         )}
@@ -359,9 +361,9 @@ export function NetWorth() {
                             <p className="text-sm text-muted-foreground">No active receivables.</p>
                         ) : (
                             receivables.map((debt) => (
-                                <div key={debt.id} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{debt.personName}</span>
-                                    <span className="font-medium text-emerald-500">
+                                <div key={debt.id} className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="min-w-0 truncate text-muted-foreground">{debt.personName}</span>
+                                    <span className="shrink-0 font-medium text-emerald-500">
                                         {formatCurrency(debt.remainingAmount, currency)}
                                     </span>
                                 </div>
@@ -375,9 +377,9 @@ export function NetWorth() {
                             <p className="text-sm text-muted-foreground">None.</p>
                         ) : (
                             excludedAccounts.map((account) => (
-                                <div key={account.id} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{account.name} ({account.type})</span>
-                                    <span className="text-muted-foreground">
+                                <div key={account.id} className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="min-w-0 truncate text-muted-foreground">{account.name} ({account.type})</span>
+                                    <span className="shrink-0 text-muted-foreground">
                                         {formatCurrency(account.balance, currency)}
                                     </span>
                                 </div>
@@ -391,9 +393,9 @@ export function NetWorth() {
                             <p className="text-sm text-muted-foreground">None.</p>
                         ) : (
                             excludedAssets.map((asset) => (
-                                <div key={asset.id} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{asset.name} ({asset.category})</span>
-                                    <span className="text-muted-foreground">
+                                <div key={asset.id} className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="min-w-0 truncate text-muted-foreground">{asset.name} ({asset.category})</span>
+                                    <span className="shrink-0 text-muted-foreground">
                                         {formatCurrency(asset.currentValue, currency)}
                                     </span>
                                 </div>

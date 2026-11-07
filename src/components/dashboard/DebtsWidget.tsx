@@ -35,19 +35,19 @@ export function DebtsWidget() {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-500/10 p-2 rounded-lg">
-                        <div className="flex items-center gap-1 text-xs text-green-600 mb-1">
+                    <div className="min-w-0 rounded-lg bg-green-500/10 p-2">
+                        <div className="mb-1 flex items-center gap-1 text-xs text-green-600">
                             <ArrowDownLeft className="h-3 w-3" /> Recv.
                         </div>
-                        <div className="text-lg font-bold text-green-700 dark:text-green-500">
+                        <div className="break-words text-base font-bold text-green-700 dark:text-green-500 sm:text-lg">
                             {formatCurrency(totalReceivable, currency)}
                         </div>
                     </div>
-                    <div className="bg-red-500/10 p-2 rounded-lg">
-                        <div className="flex items-center gap-1 text-xs text-red-600 mb-1">
+                    <div className="min-w-0 rounded-lg bg-red-500/10 p-2">
+                        <div className="mb-1 flex items-center gap-1 text-xs text-red-600">
                             <ArrowUpRight className="h-3 w-3" /> Payable
                         </div>
-                        <div className="text-lg font-bold text-red-700 dark:text-red-500">
+                        <div className="break-words text-base font-bold text-red-700 dark:text-red-500 sm:text-lg">
                             {formatCurrency(totalPayable, currency)}
                         </div>
                     </div>

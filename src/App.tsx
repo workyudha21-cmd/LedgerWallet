@@ -9,6 +9,7 @@ import { lazy, Suspense, useEffect, useState } from "react"
 import { auth } from "./lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 
+const Landing = lazy(() => import("./pages/Landing").then((module) => ({ default: module.Landing })))
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })))
 const Transactions = lazy(() => import("./pages/Transactions").then((module) => ({ default: module.Transactions })))
 const Accounts = lazy(() => import("./pages/Accounts").then((module) => ({ default: module.Accounts })))
@@ -23,8 +24,9 @@ const Settings = lazy(() => import("./pages/Settings").then((module) => ({ defau
 const NotFound = lazy(() => import("./pages/NotFound").then((module) => ({ default: module.NotFound })))
 const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })))
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, loading }: { children: React.ReactNode; loading: boolean }) {
   const user = useAuthStore((state) => state.user)
+  if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
 }
@@ -119,20 +121,15 @@ function App() {
     return () => clearTimeout(timer)
   }, [user, categories.length, loading, seedDefaults])
 
-  if (loading) return null
-
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Dashboard />} />
+            <Route element={<ProtectedRoute loading={loading}><AppLayout /></ProtectedRoute>}>
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="transactions" element={<Transactions />} />
               <Route path="accounts" element={<Accounts />} />
               <Route path="assets" element={<Assets />} />

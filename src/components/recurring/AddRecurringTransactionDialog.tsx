@@ -267,7 +267,7 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
               )}
             />
 
-            <div className={isLinked ? "" : "grid grid-cols-2 gap-4"}>
+            <div className={isLinked ? "" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
                 <FormField
                 control={form.control}
                 name="amount"
@@ -313,7 +313,7 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
                 )}
             </div>
 
-            <div className={isSavingsLink ? "" : "grid grid-cols-2 gap-4"}>
+            <div className={isSavingsLink ? "" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
                  {!isSavingsLink && (
                  <FormField
                 control={form.control}

@@ -55,7 +55,7 @@ export function Login() {
   const [message, setMessage] = useState("")
 
   useEffect(() => {
-    if (user) navigate("/", { replace: true })
+    if (user) navigate("/dashboard", { replace: true })
   }, [user, navigate])
 
   const switchMode = (nextMode: LoginMode) => {
@@ -100,12 +100,12 @@ export function Login() {
       if (mode === "signin") {
         const credential = await signInWithEmailAndPassword(auth, trimmedEmail, password)
         setUser(credential.user)
-        navigate("/")
+        navigate("/dashboard")
       } else if (mode === "signup") {
         const credential = await createUserWithEmailAndPassword(auth, trimmedEmail, password)
         await updateProfile(credential.user, { displayName: name.trim() })
         setUser(auth.currentUser ?? credential.user)
-        navigate("/")
+        navigate("/dashboard")
       } else {
         await sendPasswordResetEmail(auth, trimmedEmail)
         setMessage("Password reset email sent. Check your inbox.")
@@ -127,7 +127,7 @@ export function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider)
       setUser(result.user)
-      navigate("/")
+      navigate("/dashboard")
     } catch (error) {
       const code = (error as { code?: string }).code
       setError(code ? getAuthErrorMessage(code) : "Google sign-in failed. Please try again.")

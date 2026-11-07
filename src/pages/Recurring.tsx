@@ -93,14 +93,14 @@ export function Recurring() {
         {sorted.map(item => (
             <Card key={item.id} className={!item.active ? 'opacity-60' : ''}>
                 <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <CardTitle className="text-lg font-bold">{item.name}</CardTitle>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <CardTitle className="truncate text-lg font-bold">{item.name}</CardTitle>
                             <CardDescription className="capitalize">
                                 {item.frequency} - {item.type === 'savings' ? 'savings contribution' : item.type}
                             </CardDescription>
                         </div>
-                        <Badge variant={isLinkCompleted(item) ? "secondary" : item.active ? "default" : "secondary"}>
+                        <Badge className="shrink-0" variant={isLinkCompleted(item) ? "secondary" : item.active ? "default" : "secondary"}>
                             {isLinkCompleted(item) ? "Completed" : item.active ? "Active" : "Paused"}
                         </Badge>
                     </div>
@@ -129,7 +129,7 @@ export function Recurring() {
                         )}
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                    <div className="mt-4 flex flex-wrap justify-end gap-2 border-t pt-4">
                         {!isLinkCompleted(item) && (
                             <Button
                                 variant="outline"

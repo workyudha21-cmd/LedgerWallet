@@ -141,7 +141,7 @@ export function Reports() {
           <h2 className="text-3xl font-bold tracking-tight">Reports</h2>
           <p className="text-muted-foreground">Review your income and spending by month.</p>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-full md:w-[180px]">
               <SelectValue />

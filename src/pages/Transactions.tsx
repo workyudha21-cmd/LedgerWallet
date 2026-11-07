@@ -71,9 +71,9 @@ export function Transactions() {
 
   return (
     <div className="flex-1 space-y-4">
-       <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-2 md:space-y-0">
+       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Transactions</h2>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
             <ExportButton transactions={filteredTransactions} currency={currency} />
             <AddTransactionDialog>
                 <Button>
@@ -193,20 +193,18 @@ export function Transactions() {
             paginatedTransactions.map((t) => (
                 <Card key={t.id} className="overflow-hidden">
                     <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="font-bold truncate pr-2">{t.description}</div>
-                            <div className={`whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="min-w-0 flex-1 truncate font-bold">{t.description}</div>
+                            <div className={`shrink-0 whitespace-nowrap font-medium ${t.type === 'income' ? 'text-green-500' : isConsumptionExpense(t) ? 'text-red-500' : 'text-muted-foreground'}`}>
                                 {t.type === 'transfer' || isSavingsTransaction(t)
                                     ? formatCurrency(Math.abs(t.amount), currency)
                                     : <>{t.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(t.amount), currency)}</>}
                             </div>
                         </div>
-                        <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
-                             <div className="flex items-center gap-2">
-                                <span>{format(new Date(t.date), 'MMM dd, yyyy')}</span>
-                                <span>•</span>
-                                <span className="capitalize">{t.category}</span>
-                             </div>
+                        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                            <span>{format(new Date(t.date), 'MMM dd, yyyy')}</span>
+                            <span>•</span>
+                            <span className="min-w-0 max-w-full truncate capitalize">{t.category}</span>
                         </div>
                         <div className="flex justify-end border-t pt-3">
                              <TransactionActions transaction={t} />

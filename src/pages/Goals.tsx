@@ -60,17 +60,17 @@ export function Goals() {
       {goals.length > 0 && (
           <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 border-none text-white shadow-lg">
               <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                      <div>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
                           <p className="text-indigo-100 font-medium">Total Saved</p>
-                          <h3 className="text-3xl font-bold">{formatCurrency(totalSaved, currency)}</h3>
+                          <h3 className="truncate text-3xl font-bold">{formatCurrency(totalSaved, currency)}</h3>
                       </div>
-                      <Target className="h-10 w-10 text-indigo-200 opacity-50" />
+                      <Target className="h-10 w-10 shrink-0 text-indigo-200 opacity-50" />
                   </div>
                   <div className="space-y-2">
-                      <div className="flex justify-between text-sm text-indigo-100">
+                      <div className="flex flex-col gap-1 text-sm text-indigo-100 sm:flex-row sm:justify-between">
                           <span>Overall Progress</span>
-                          <span>{totalProgress.toFixed(1)}% of {formatCurrency(totalTarget, currency)}</span>
+                          <span className="text-left sm:text-right">{totalProgress.toFixed(1)}% of {formatCurrency(totalTarget, currency)}</span>
                       </div>
                       <Progress value={totalProgress} className="h-2 bg-indigo-900/30" indicatorClassName="bg-white" />
                   </div>
@@ -87,10 +87,10 @@ export function Goals() {
             return (
                 <Card key={goal.id}>
                     <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <CardTitle className="text-lg font-bold">{goal.name}</CardTitle>
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                    <CardTitle className="truncate text-lg font-bold">{goal.name}</CardTitle>
                                     {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
                                 </div>
                                 {goal.deadline && (
@@ -99,7 +99,7 @@ export function Goals() {
                                     </CardDescription>
                                 )}
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex shrink-0 gap-1">
                                 <AddGoalDialog
                                     goal={goal}
                                     trigger={

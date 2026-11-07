@@ -60,11 +60,11 @@ export function AssetCard({ asset, currency }: AssetCardProps) {
     <>
       <Card className="relative overflow-hidden transition-all hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            {icon}
-            {asset.name}
+          <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-medium">
+            <span className="shrink-0">{icon}</span>
+            <span className="truncate">{asset.name}</span>
             {asset.includeInNetWorth === false && (
-              <Badge variant="outline" className="text-[10px]">Excluded</Badge>
+              <Badge variant="outline" className="shrink-0 text-[10px]">Excluded</Badge>
             )}
           </CardTitle>
           <DropdownMenu>

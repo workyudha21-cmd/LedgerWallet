@@ -70,7 +70,7 @@ export function DebtScheduleDialog({ debt, trigger }: DebtScheduleDialogProps) {
                     </p>
                 ) : (
                     <div className="space-y-4">
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div className="rounded-md border p-3">
                                 <p className="text-xs text-muted-foreground">Months</p>
                                 <p className="text-lg font-bold">{schedule.length}</p>

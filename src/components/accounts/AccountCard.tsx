@@ -48,14 +48,14 @@ export function AccountCard({ account, currency }: AccountCardProps) {
     <>
         <Card className="relative overflow-hidden transition-all hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium capitalize flex items-center gap-2">
-            {getIcon(account.type)}
-            {account.name}
+            <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-medium capitalize">
+            <span className="shrink-0">{getIcon(account.type)}</span>
+            <span className="truncate">{account.name}</span>
             {account.isEmergencyFund && (
-              <Badge variant="outline" className="text-[10px]">Emergency</Badge>
+              <Badge variant="outline" className="shrink-0 text-[10px]">Emergency</Badge>
             )}
             {account.includeInNetWorth === false && (
-              <Badge variant="outline" className="text-[10px]">Excluded</Badge>
+              <Badge variant="outline" className="shrink-0 text-[10px]">Excluded</Badge>
             )}
             </CardTitle>
             <DropdownMenu>

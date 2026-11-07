@@ -63,14 +63,14 @@ export function Debts() {
                     </div>
                 )}
                 <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <Badge variant={isPayable ? "destructive" : "default"} className={isPayable ? "bg-red-100 text-red-800 hover:bg-red-100" : "bg-green-100 text-green-800 hover:bg-green-100"}>
                                     {isPayable ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownLeft className="h-3 w-3 mr-1" />}
                                     {isPayable ? "I Owe" : "Owed to Me"}
                                 </Badge>
-                                <CardTitle className="text-lg font-bold">{debt.personName}</CardTitle>
+                                <CardTitle className="break-words text-lg font-bold">{debt.personName}</CardTitle>
                                 {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
                             </div>
                             {debt.dueDate && (
@@ -89,7 +89,7 @@ export function Debts() {
                             )}
                         </div>
                         {!isHistory && (
-                            <div className="flex gap-1">
+                            <div className="flex shrink-0 gap-1">
                                 <AddDebtDialog
                                     debt={debt}
                                     trigger={
@@ -112,12 +112,12 @@ export function Debts() {
                 </CardHeader>
                 <CardContent>
                     <div className="mb-4 space-y-2">
-                        <div className="flex justify-between items-end">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <p className="text-xs text-muted-foreground">Remaining</p>
                                 <span className="text-2xl font-bold">{formatCurrency(debt.remainingAmount, currency)}</span>
                             </div>
-                            <div className="text-right">
+                            <div className="text-left sm:text-right">
                                 <p className="text-xs text-muted-foreground">Total</p>
                                 <span className="font-medium">{formatCurrency(debt.totalAmount, currency)}</span>
                             </div>
@@ -135,9 +135,9 @@ export function Debts() {
                         )}
                         {utilization !== null && (
                             <div className="space-y-1 pt-1">
-                                <div className="flex justify-between text-xs text-muted-foreground">
+                                <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:justify-between">
                                     <span>Credit utilization</span>
-                                    <span>
+                                    <span className="text-left sm:text-right">
                                         {utilization.toFixed(0)}% of {formatCurrency(debt.creditLimit || 0, currency)}
                                     </span>
                                 </div>
@@ -157,7 +157,7 @@ export function Debts() {
                     </div>
 
                     {!isHistory && (
-                        <div className="flex justify-end gap-2 pt-2">
+                        <div className="flex flex-wrap justify-end gap-2 pt-2">
                             {isPayable && !!debt.minimumPayment && (
                                 <DebtScheduleDialog
                                     debt={debt}

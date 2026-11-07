@@ -32,8 +32,8 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       </div>
       <nav className="space-y-2 flex-1 overflow-y-auto">
         <Link
-          to="/"
-          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/' ? 'bg-muted font-medium' : ''}`}
+          to="/dashboard"
+          className={`flex items-center gap-2 px-2 py-2 rounded hover:bg-muted transition-colors ${location.pathname === '/dashboard' ? 'bg-muted font-medium' : ''}`}
           onClick={onLinkClick}
         >
           <LayoutDashboard className="h-4 w-4" />
