@@ -4,6 +4,7 @@ import { CurrencyToggle } from "@/components/currency-toggle"
 import { CategoryManager } from "@/components/categories/CategoryManager"
 import { ExportDialog } from "@/components/settings/ExportDialog"
 import { BackupRestore } from "@/components/settings/BackupRestore"
+import { CsvImport } from "@/components/settings/CsvImport"
 import { DeleteAccountDialog } from "@/components/settings/DeleteAccountDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useTransactionStore } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
+import { notifyError, toastSuccess } from "@/lib/toast"
 
 export function Settings() {
     const {
@@ -65,6 +67,7 @@ export function Settings() {
         setSavingsTarget(String(nextTargets.savingsRate))
         setMaxDti(String(nextTargets.maxDti))
         setTargetsSaved(true)
+        toastSuccess("Financial targets saved")
     }
 
     const handleReset = async () => {
@@ -75,7 +78,7 @@ export function Settings() {
             window.location.reload()
         } catch (error) {
             console.error(error)
-            alert("Failed to reset data.")
+            notifyError("Failed to reset data.")
         }
     }
 
@@ -136,6 +139,16 @@ export function Settings() {
                                 <p className="text-xs text-muted-foreground">Download your transaction history.</p>
                             </div>
                             <ExportDialog />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-0.5">
+                                <label className="text-sm font-medium">Import CSV</label>
+                                <p className="text-xs text-muted-foreground">
+                                    Import transactions from a spreadsheet export.
+                                </p>
+                            </div>
+                            <CsvImport />
                         </div>
 
                         <div className="flex items-center justify-between gap-4">

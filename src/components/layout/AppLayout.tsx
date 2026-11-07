@@ -5,8 +5,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { auth } from "@/lib/firebase"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { PageLoader } from "@/components/page-loader"
 
 function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   const { user } = useAuthStore()
@@ -164,7 +165,9 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-8">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

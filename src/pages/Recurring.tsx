@@ -17,6 +17,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useState } from "react"
+import { notifyError } from "@/lib/toast"
 
 export function Recurring() {
   const { recurringTransactions, currency, editRecurringTransaction, deleteRecurringTransaction, accounts, debts, assets, goals } = useTransactionStore()
@@ -29,7 +30,7 @@ export function Recurring() {
 
   const handleToggle = (item: RecurringTransaction) => {
       if (!item.active && !item.accountId) {
-          alert("Select an account in Edit before resuming this rule.")
+          notifyError("Select an account in Edit before resuming this rule.")
           return
       }
       editRecurringTransaction(item.id, { active: !item.active })

@@ -34,6 +34,7 @@ import {
     type FinancialTargets
 } from './financialTargets'
 import { estimatePayoffAmount, splitDebtPayment } from './debt'
+import { notifyError } from './toast'
 
 export type TransactionType = 'income' | 'expense'
 export type TransactionKind = TransactionType | 'transfer' | 'savings'
@@ -86,6 +87,15 @@ export interface Transaction {
 }
 
 export type TransactionFormValues = Omit<Transaction, 'id' | 'userId'>
+
+export interface TransactionImportRow {
+    date: string
+    description: string
+    amount: number
+    type: 'income' | 'expense'
+    category: string
+    accountId: string
+}
 
 export interface Category {
     id: string
@@ -202,6 +212,7 @@ interface TransactionState {
 
     // Async Actions
     addTransaction: (transaction: TransactionFormValues, userId: string) => Promise<void>
+    importTransactions: (rows: TransactionImportRow[], userId: string) => Promise<number>
     transferBetweenAccounts: (transfer: {
         fromAccountId: string
         toAccountId: string
@@ -470,8 +481,60 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 } catch (error) {
                     console.error("Error adding transaction: ", error)
-                    alert(`Failed to save transaction: ${(error as Error).message}`)
+                    notifyError(`Failed to save transaction: ${(error as Error).message}`)
                 }
+            },
+
+            importTransactions: async (rows, userId) => {
+                if (rows.length === 0) return 0
+
+                const accountIds = new Set(get().accounts.map(account => account.id))
+                rows.forEach((row, index) => {
+                    if (!accountIds.has(row.accountId)) {
+                        throw new Error(`Row ${index + 1}: account not found`)
+                    }
+                    if (!Number.isFinite(row.amount) || row.amount <= 0) {
+                        throw new Error(`Row ${index + 1}: amount must be greater than 0`)
+                    }
+                    if (row.type !== 'income' && row.type !== 'expense') {
+                        throw new Error(`Row ${index + 1}: type must be income or expense`)
+                    }
+                })
+
+                const CHUNK_SIZE = 300
+
+                for (let index = 0; index < rows.length; index += CHUNK_SIZE) {
+                    const chunk = rows.slice(index, index + CHUNK_SIZE)
+                    const batch = writeBatch(db)
+                    const accountDeltas = new Map<string, number>()
+
+                    chunk.forEach((row) => {
+                        const transactionRef = doc(collection(db, 'transactions'))
+                        batch.set(transactionRef, {
+                            amount: row.amount,
+                            type: row.type,
+                            category: row.category,
+                            description: row.description || 'Imported transaction',
+                            date: row.date,
+                            userId,
+                            accountId: row.accountId,
+                            createdAt: Timestamp.now()
+                        })
+
+                        const delta = row.type === 'income' ? row.amount : -row.amount
+                        accountDeltas.set(row.accountId, (accountDeltas.get(row.accountId) || 0) + delta)
+                    })
+
+                    accountDeltas.forEach((delta, accountId) => {
+                        if (delta !== 0) {
+                            batch.update(doc(db, 'accounts', accountId), { balance: increment(delta) })
+                        }
+                    })
+
+                    await batch.commit()
+                }
+
+                return rows.length
             },
 
             transferBetweenAccounts: async (transfer, userId) => {
@@ -563,7 +626,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 } catch (error) {
                     console.error("Error deleting transaction: ", error)
-                    alert(`Failed to delete transaction: ${(error as Error).message}`)
+                    notifyError(`Failed to delete transaction: ${(error as Error).message}`)
                 }
             },
 
@@ -655,7 +718,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await batch.commit()
                 } catch (error) {
                     console.error("Error updating transaction: ", error)
-                    alert(`Failed to update transaction: ${(error as Error).message}`)
+                    notifyError(`Failed to update transaction: ${(error as Error).message}`)
                 }
             },
 
@@ -668,7 +731,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (error) {
                     console.error("Error adding category: ", error)
-                    alert(`Failed to add category: ${(error as Error).message}`)
+                    notifyError(`Failed to add category: ${(error as Error).message}`)
                 }
             },
 
@@ -703,7 +766,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'categories', id))
                 } catch (error) {
                     console.error("Error removing category: ", error)
-                    alert(`Failed to remove category: ${(error as Error).message}`)
+                    notifyError(`Failed to remove category: ${(error as Error).message}`)
                 }
             },
 
@@ -723,7 +786,7 @@ export const useTransactionStore = create<TransactionState>()(
                     }
                 } catch (error) {
                     console.error("Error adding/updating budget: ", error)
-                    alert(`Failed to save budget: ${(error as Error).message}`)
+                    notifyError(`Failed to save budget: ${(error as Error).message}`)
                 }
             },
 
@@ -732,7 +795,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'budgets', id))
                 } catch (error) {
                     console.error("Error removing budget: ", error)
-                    alert(`Failed to remove budget: ${(error as Error).message}`)
+                    notifyError(`Failed to remove budget: ${(error as Error).message}`)
                 }
             },
 
@@ -745,7 +808,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (e) {
                     console.error("Error adding account:", e)
-                    alert(`Failed to add account: ${(e as Error).message}`)
+                    notifyError(`Failed to add account: ${(e as Error).message}`)
                 }
             },
             removeAccount: async (id) => {
@@ -798,7 +861,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'accounts', id))
                 } catch (e) {
                     console.error(e)
-                    alert(`Failed to remove account: ${(e as Error).message}`)
+                    notifyError(`Failed to remove account: ${(e as Error).message}`)
                 }
             },
             editAccount: async (id, updates) => {
@@ -806,7 +869,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await updateDoc(doc(db, 'accounts', id), updates)
                 } catch (e) {
                     console.error(e)
-                    alert(`Failed to update account: ${(e as Error).message}`)
+                    notifyError(`Failed to update account: ${(e as Error).message}`)
                 }
             },
 
@@ -819,7 +882,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (e) {
                     console.error("Error adding asset:", e)
-                    alert(`Failed to add asset: ${(e as Error).message}`)
+                    notifyError(`Failed to add asset: ${(e as Error).message}`)
                 }
             },
             editAsset: async (id, updates) => {
@@ -827,7 +890,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await updateDoc(doc(db, 'assets', id), updates)
                 } catch (e) {
                     console.error("Error editing asset:", e)
-                    alert(`Failed to update asset: ${(e as Error).message}`)
+                    notifyError(`Failed to update asset: ${(e as Error).message}`)
                 }
             },
             removeAsset: async (id) => {
@@ -864,7 +927,7 @@ export const useTransactionStore = create<TransactionState>()(
                     }
                 } catch (e) {
                     console.error("Error removing asset:", e)
-                    alert(`Failed to remove asset: ${(e as Error).message}`)
+                    notifyError(`Failed to remove asset: ${(e as Error).message}`)
                 }
             },
             contributeToAsset: async (contribution, userId) => {
@@ -924,7 +987,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (e) {
                     console.error("Error adding recurring:", e)
-                    alert(`Failed to add recurring transaction: ${(e as Error).message}`)
+                    notifyError(`Failed to add recurring transaction: ${(e as Error).message}`)
                 }
             },
 
@@ -933,7 +996,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await updateDoc(doc(db, 'recurring_transactions', id), updates)
                 } catch (e) {
                     console.error("Error editing recurring:", e)
-                    alert(`Failed to update recurring transaction: ${(e as Error).message}`)
+                    notifyError(`Failed to update recurring transaction: ${(e as Error).message}`)
                 }
             },
 
@@ -942,7 +1005,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'recurring_transactions', id))
                 } catch (e) {
                     console.error("Error deleting recurring:", e)
-                    alert(`Failed to delete recurring transaction: ${(e as Error).message}`)
+                    notifyError(`Failed to delete recurring transaction: ${(e as Error).message}`)
                 }
             },
 
@@ -1368,7 +1431,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (e) {
                     console.error("Error adding goal:", e)
-                    alert(`Failed to add goal: ${(e as Error).message}`)
+                    notifyError(`Failed to add goal: ${(e as Error).message}`)
                 }
             },
 
@@ -1377,7 +1440,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await updateDoc(doc(db, 'goals', id), updates)
                 } catch (e) {
                     console.error("Error editing goal:", e)
-                    alert(`Failed to update goal: ${(e as Error).message}`)
+                    notifyError(`Failed to update goal: ${(e as Error).message}`)
                 }
             },
 
@@ -1386,7 +1449,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'goals', id))
                 } catch (e) {
                     console.error("Error deleting goal:", e)
-                    alert(`Failed to delete goal: ${(e as Error).message}`)
+                    notifyError(`Failed to delete goal: ${(e as Error).message}`)
                 }
             },
 
@@ -1432,7 +1495,7 @@ export const useTransactionStore = create<TransactionState>()(
 
                 } catch (e) {
                     console.error("Error contributing to goal:", e)
-                    alert((e as Error).message)
+                    notifyError((e as Error).message)
                 }
             },
 
@@ -1456,7 +1519,7 @@ export const useTransactionStore = create<TransactionState>()(
                     })
                 } catch (e) {
                     console.error("Error adding debt:", e)
-                    alert(`Failed to add debt: ${(e as Error).message}`)
+                    notifyError(`Failed to add debt: ${(e as Error).message}`)
                 }
             },
 
@@ -1465,7 +1528,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await updateDoc(doc(db, 'debts', id), updates)
                 } catch (e) {
                     console.error("Error editing debt:", e)
-                    alert(`Failed to update debt: ${(e as Error).message}`)
+                    notifyError(`Failed to update debt: ${(e as Error).message}`)
                 }
             },
 
@@ -1474,7 +1537,7 @@ export const useTransactionStore = create<TransactionState>()(
                     await deleteDoc(doc(db, 'debts', id))
                 } catch (e) {
                     console.error("Error deleting debt:", e)
-                    alert(`Failed to delete debt: ${(e as Error).message}`)
+                    notifyError(`Failed to delete debt: ${(e as Error).message}`)
                 }
             },
 
@@ -1543,7 +1606,7 @@ export const useTransactionStore = create<TransactionState>()(
 
                 } catch (e) {
                     console.error("Error paying debt:", e)
-                    alert((e as Error).message)
+                    notifyError((e as Error).message)
                 }
             },
 

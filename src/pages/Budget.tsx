@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useTransactionStore } from "@/lib/store"
-import { formatCurrency, formatCompactNumber } from "@/lib/utils"
+import { cn, formatCurrency, formatCompactNumber } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { Plus, Trash, Wallet, Edit2, AlertCircle } from "lucide-react"
+import { Plus, Trash, Wallet, Edit2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { addMonths, format, subMonths } from "date-fns"
 import {
     Dialog,
     DialogContent,
@@ -37,16 +38,26 @@ export function Budget() {
     const [amount, setAmount] = useState("")
     const [formError, setFormError] = useState("")
 
-    // 1. Calculate Spent for Current Month
-    const currentMonth = new Date().getMonth()
-    const currentYear = new Date().getFullYear()
+    const today = new Date()
+    const currentMonthKey = format(today, "yyyy-MM")
+    const oldestMonthKey = format(subMonths(today, 23), "yyyy-MM")
+    const [selectedMonth, setSelectedMonth] = useState(currentMonthKey)
+    const selectedDate = new Date(
+        Number(selectedMonth.slice(0, 4)),
+        Number(selectedMonth.slice(5, 7)) - 1,
+        1
+    )
+    const selectedMonthLabel = format(selectedDate, "MMMM yyyy")
+    const selectedMonthNumber = selectedDate.getMonth()
+    const selectedYear = selectedDate.getFullYear()
+    const monthOptions = Array.from({ length: 24 }, (_, index) => subMonths(today, index))
 
     const expensesByCategory = transactions.reduce((acc, t) => {
         const tDate = new Date(t.date)
         if (
             isConsumptionExpense(t) &&
-            tDate.getMonth() === currentMonth &&
-            tDate.getFullYear() === currentYear
+            tDate.getMonth() === selectedMonthNumber &&
+            tDate.getFullYear() === selectedYear
         ) {
             acc[t.category] = (acc[t.category] || 0) + getConsumptionAmount(t)
         }
@@ -74,6 +85,28 @@ export function Budget() {
     const totalSpentInBudgets = budgetData.reduce((acc, b) => acc + b.spent, 0)
     const totalSpentAll = Object.values(expensesByCategory).reduce((acc, val) => acc + val, 0)
     const unbudgetedSpend = totalSpentAll - totalSpentInBudgets
+
+    const budgetedCategories = new Set(budgets.map(b => b.category))
+    const budgetHistory = Array.from({ length: 6 }, (_, index) => {
+        const date = subMonths(today, 5 - index)
+        const spent = transactions.reduce((sum, transaction) => {
+            const transactionDate = new Date(transaction.date)
+            return isConsumptionExpense(transaction) &&
+                budgetedCategories.has(transaction.category) &&
+                transactionDate.getMonth() === date.getMonth() &&
+                transactionDate.getFullYear() === date.getFullYear()
+                ? sum + getConsumptionAmount(transaction)
+                : sum
+        }, 0)
+        const percentage = totalBudget > 0 ? (spent / totalBudget) * 100 : 0
+
+        return {
+            key: format(date, "yyyy-MM"),
+            label: format(date, "MMM yyyy"),
+            spent,
+            percentage,
+        }
+    })
 
     // 4. Form Handlers
     const customExpenses = categories
@@ -118,11 +151,50 @@ export function Budget() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Budget Planner</h2>
-                    <p className="text-muted-foreground">Track your monthly spending limits.</p>
+                    <p className="text-muted-foreground">Track your monthly spending limits for {selectedMonthLabel}.</p>
                 </div>
-                <Button onClick={() => { setEditId(null); setCategory(""); setAmount(""); setFormError(""); setOpen(true); }}>
-                    <Plus className="mr-2 h-4 w-4" /> Set New Budget
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            aria-label="Previous month"
+                            disabled={selectedMonth <= oldestMonthKey}
+                            onClick={() => setSelectedMonth(format(subMonths(selectedDate, 1), "yyyy-MM"))}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                            <SelectTrigger className="w-[170px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {monthOptions.map((date) => {
+                                    const key = format(date, "yyyy-MM")
+                                    return (
+                                        <SelectItem key={key} value={key}>
+                                            {format(date, "MMMM yyyy")}
+                                        </SelectItem>
+                                    )
+                                })}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            aria-label="Next month"
+                            disabled={selectedMonth >= currentMonthKey}
+                            onClick={() => setSelectedMonth(format(addMonths(selectedDate, 1), "yyyy-MM"))}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <Button onClick={() => { setEditId(null); setCategory(""); setAmount(""); setFormError(""); setOpen(true); }}>
+                        <Plus className="mr-2 h-4 w-4" /> Set New Budget
+                    </Button>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -171,7 +243,7 @@ export function Budget() {
                 <Card className="col-span-4">
                     <CardHeader>
                         <CardTitle>Budget vs Actual</CardTitle>
-                        <CardDescription>Spending per category this month</CardDescription>
+                        <CardDescription>Spending per category in {selectedMonthLabel}</CardDescription>
                     </CardHeader>
                     <CardContent className="pl-2">
                         <ResponsiveContainer width="100%" height={300}>
@@ -218,6 +290,56 @@ export function Budget() {
                                 <Legend wrapperStyle={{ fontSize: 12 }} />
                             </BarChart>
                         </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* History */}
+            {budgets.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Budget History</CardTitle>
+                        <CardDescription>
+                            Last 6 months against your current total budget. Select a month to review it.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {budgetHistory.map((month) => {
+                            const indicatorClass = month.percentage > 100
+                                ? "bg-red-500"
+                                : month.percentage > 80
+                                    ? "bg-yellow-500"
+                                    : "bg-green-500"
+
+                            return (
+                                <button
+                                    key={month.key}
+                                    type="button"
+                                    onClick={() => setSelectedMonth(month.key)}
+                                    className={cn(
+                                        "w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                                        month.key === selectedMonth && "border-primary/40 bg-muted/50"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="font-medium">{month.label}</span>
+                                        <span className={month.percentage > 100 ? "text-red-600" : "text-muted-foreground"}>
+                                            {formatCurrency(month.spent, currency)} / {formatCurrency(totalBudget, currency)}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Progress
+                                            value={Math.min(month.percentage, 100)}
+                                            className="h-1.5 flex-1"
+                                            indicatorClassName={indicatorClass}
+                                        />
+                                        <span className="w-10 text-right text-xs text-muted-foreground">
+                                            {Math.round(month.percentage)}%
+                                        </span>
+                                    </div>
+                                </button>
+                            )
+                        })}
                     </CardContent>
                 </Card>
             )}
@@ -283,7 +405,7 @@ export function Budget() {
                     <DialogHeader>
                         <DialogTitle>{editId ? "Edit Budget" : "Set New Budget"}</DialogTitle>
                         <DialogDescription>
-                            Set a monthly spending limit for a specific category.
+                            Set a monthly spending limit for a specific category. The limit applies to every month.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">

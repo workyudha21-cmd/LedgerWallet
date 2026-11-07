@@ -1,24 +1,27 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AppLayout } from "./components/layout/AppLayout"
-import { Dashboard } from "./pages/Dashboard"
-import { Transactions } from "./pages/Transactions"
-import { Accounts } from "./pages/Accounts"
-import { Recurring } from "./pages/Recurring"
-import { Goals } from "./pages/Goals"
-import { Debts } from "./pages/Debts"
-import { Budget } from "./pages/Budget"
-import { Assets } from "./pages/Assets"
-import { NetWorth } from "./pages/NetWorth"
-import { Reports } from "./pages/Reports"
-import { Settings } from "./pages/Settings"
-import { NotFound } from "./pages/NotFound"
 import { ThemeProvider } from "./components/theme-provider"
-import { Login } from "./pages/Login"
+import { Toaster } from "./components/ui/toaster"
+import { PageLoader } from "./components/page-loader"
 import { useAuthStore } from "./lib/auth-store"
 import { useTransactionStore } from "./lib/store"
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { auth } from "./lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
+
+const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })))
+const Transactions = lazy(() => import("./pages/Transactions").then((module) => ({ default: module.Transactions })))
+const Accounts = lazy(() => import("./pages/Accounts").then((module) => ({ default: module.Accounts })))
+const Recurring = lazy(() => import("./pages/Recurring").then((module) => ({ default: module.Recurring })))
+const Goals = lazy(() => import("./pages/Goals").then((module) => ({ default: module.Goals })))
+const Debts = lazy(() => import("./pages/Debts").then((module) => ({ default: module.Debts })))
+const Budget = lazy(() => import("./pages/Budget").then((module) => ({ default: module.Budget })))
+const Assets = lazy(() => import("./pages/Assets").then((module) => ({ default: module.Assets })))
+const NetWorth = lazy(() => import("./pages/NetWorth").then((module) => ({ default: module.NetWorth })))
+const Reports = lazy(() => import("./pages/Reports").then((module) => ({ default: module.Reports })))
+const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })))
+const NotFound = lazy(() => import("./pages/NotFound").then((module) => ({ default: module.NotFound })))
+const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user)
@@ -121,28 +124,31 @@ function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<Dashboard />} />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="accounts" element={<Accounts />} />
-            <Route path="assets" element={<Assets />} />
-            <Route path="net-worth" element={<NetWorth />} />
-            <Route path="recurring" element={<Recurring />} />
-            <Route path="goals" element={<Goals />} />
-            <Route path="debts" element={<Debts />} />
-            <Route path="budget" element={<Budget />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Dashboard />} />
+              <Route path="transactions" element={<Transactions />} />
+              <Route path="accounts" element={<Accounts />} />
+              <Route path="assets" element={<Assets />} />
+              <Route path="net-worth" element={<NetWorth />} />
+              <Route path="recurring" element={<Recurring />} />
+              <Route path="goals" element={<Goals />} />
+              <Route path="debts" element={<Debts />} />
+              <Route path="budget" element={<Budget />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
+      <Toaster />
     </ThemeProvider>
   )
 }
