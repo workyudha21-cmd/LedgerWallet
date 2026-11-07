@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/form"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Asset } from "@/lib/store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { formatCurrency, formatCurrencyInput } from "@/lib/utils"
 import { format } from "date-fns"
 import { useState } from "react"
@@ -103,6 +104,12 @@ export function ContributeAssetDialog({ asset, trigger }: ContributeAssetDialogP
                         Move money from an account to this asset. This is a savings transfer, not income or expense.
                     </DialogDescription>
                 </DialogHeader>
+                {accounts.length === 0 ? (
+                    <NoAccountsNotice
+                        description="Create an account before adding funds to this asset."
+                        onClose={() => setOpen(false)}
+                    />
+                ) : (
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
@@ -175,6 +182,7 @@ export function ContributeAssetDialog({ asset, trigger }: ContributeAssetDialogP
                         <Button type="submit" className="w-full">Add Funds</Button>
                     </form>
                 </Form>
+                )}
             </DialogContent>
         </Dialog>
     )

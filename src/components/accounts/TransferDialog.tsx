@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/form"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore } from "@/lib/store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { cn, formatCurrency, formatCurrencyInput } from "@/lib/utils"
 import { CalendarIcon, ArrowRightLeft } from "lucide-react"
 import { format } from "date-fns"
@@ -123,9 +124,11 @@ export function TransferDialog({ trigger }: TransferDialogProps) {
         </DialogHeader>
 
         {accounts.length < 2 ? (
-          <p className="text-sm text-muted-foreground py-4">
-            You need at least two accounts to make a transfer.
-          </p>
+          <NoAccountsNotice
+            title="Two accounts required"
+            description="Create at least two accounts before making a transfer."
+            onClose={() => setOpen(false)}
+          />
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

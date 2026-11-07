@@ -27,6 +27,7 @@ import { formatCurrencyInput, formatCurrency } from "@/lib/utils"
 // import { Banknote } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type Debt } from "@/lib/store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { estimatePayoffAmount, splitDebtPayment } from "@/lib/debt"
 import { useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -139,6 +140,12 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                         )}
                     </DialogDescription>
                 </DialogHeader>
+                {accounts.length === 0 ? (
+                    <NoAccountsNotice
+                        description="Create an account before recording this payment."
+                        onClose={() => setOpen(false)}
+                    />
+                ) : (
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
@@ -213,6 +220,7 @@ export function DebtPaymentDialog({ debt, trigger }: DebtPaymentDialogProps) {
                         </Button>
                     </form>
                 </Form>
+                )}
             </DialogContent>
         </Dialog>
     )

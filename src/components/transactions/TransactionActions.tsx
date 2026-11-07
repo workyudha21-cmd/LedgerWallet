@@ -40,7 +40,8 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
   const removeTransaction = useTransactionStore((state) => state.removeTransaction)
   const isLinked = Boolean(transaction.goalId || transaction.debtId || transaction.assetId) ||
     transaction.type === 'transfer' ||
-    transaction.type === 'savings'
+    transaction.type === 'savings' ||
+    !transaction.accountId
 
   function onConfirmDelete() {
     removeTransaction(transaction.id)

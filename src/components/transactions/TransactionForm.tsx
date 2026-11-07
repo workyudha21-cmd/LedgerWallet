@@ -201,6 +201,11 @@ export function TransactionForm({ defaultValues, onSubmit, submitLabel = "Save" 
                 </SelectContent>
               </Select>
               <FormMessage />
+              {allCategories.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No {type} categories available. Add one in Settings.
+                </p>
+              )}
             </FormItem>
           )}
         />

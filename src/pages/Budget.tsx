@@ -238,6 +238,24 @@ export function Budget() {
                 </Card>
             </div>
 
+            {budgets.length === 0 && (
+                <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center gap-2 p-8 text-center">
+                        <Wallet className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm font-medium">No budgets yet</p>
+                        <p className="text-sm text-muted-foreground">
+                            Set a monthly limit for a category to start tracking your spending.
+                        </p>
+                        <Button
+                            className="mt-2"
+                            onClick={() => { setEditId(null); setCategory(""); setAmount(""); setFormError(""); setOpen(true); }}
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> Set New Budget
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Chart Section */}
             {budgetData.length > 0 && (
                 <Card className="col-span-4">

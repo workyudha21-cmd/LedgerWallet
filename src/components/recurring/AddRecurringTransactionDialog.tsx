@@ -22,6 +22,7 @@ import { format } from "date-fns"
 import { CalendarIcon, Plus } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore, type RecurringLinkType, type RecurringTransaction } from "@/lib/store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -188,6 +189,12 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
               : "Create a subscription or scheduled payment, optionally linked to a debt, asset, or goal."}
           </DialogDescription>
         </DialogHeader>
+        {accounts.length === 0 ? (
+          <NoAccountsNotice
+            description="Create an account before scheduling a recurring transaction."
+            onClose={() => setOpen(false)}
+          />
+        ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -329,6 +336,11 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
                         </SelectContent>
                     </Select>
                     <FormMessage />
+                    {allCategories.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                            No {type} categories available. Add one in Settings.
+                        </p>
+                    )}
                     </FormItem>
                 )}
                 />
@@ -428,6 +440,7 @@ export function AddRecurringTransactionDialog({ recurring, trigger }: AddRecurri
             <Button type="submit" className="w-full">{recurring ? "Save Changes" : "Create Recurring"}</Button>
           </form>
         </Form>
+        )}
       </DialogContent>
     </Dialog>
   )

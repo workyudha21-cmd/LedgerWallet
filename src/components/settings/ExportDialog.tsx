@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTransactionStore } from "@/lib/store"
 import { getConsumptionAmount } from "@/lib/transaction-utils"
 import { formatCurrency } from "@/lib/utils"
+import { toastError } from "@/lib/toast"
 import { Download, FileSpreadsheet, FileText } from "lucide-react"
 import { useState } from "react"
 import jsPDF from "jspdf"
@@ -44,7 +45,10 @@ export function ExportDialog() {
 
     const exportToCSV = () => {
         const data = getFilteredTransactions()
-        if (data.length === 0) return
+        if (data.length === 0) {
+            toastError("Nothing to export", "No transactions in the selected range.")
+            return
+        }
 
         const headers = ["Date", "Type", "Category", "Amount", "Account", "Description"]
         const rows = data.map(t => [
@@ -76,7 +80,10 @@ export function ExportDialog() {
 
     const exportToPDF = () => {
         const data = getFilteredTransactions()
-        if (data.length === 0) return
+        if (data.length === 0) {
+            toastError("Nothing to export", "No transactions in the selected range.")
+            return
+        }
 
         const doc = new jsPDF()
 

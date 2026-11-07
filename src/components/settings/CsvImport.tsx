@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/lib/auth-store"
 import { useTransactionStore } from "@/lib/store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { parseTransactionCsv, type CsvImportRow } from "@/lib/csv"
 import { formatCurrency } from "@/lib/utils"
 import { toastError, toastSuccess } from "@/lib/toast"
@@ -107,6 +108,12 @@ export function CsvImport() {
           </DialogDescription>
         </DialogHeader>
 
+        {accounts.length === 0 ? (
+          <NoAccountsNotice
+            description="Create an account before importing transactions."
+            onClose={() => setOpen(false)}
+          />
+        ) : (
         <div className="space-y-4">
           <div className="space-y-2">
             <Input
@@ -187,12 +194,6 @@ export function CsvImport() {
             </div>
           )}
 
-          {accounts.length === 0 && (
-            <p className="text-sm text-red-600">
-              Create an account before importing transactions.
-            </p>
-          )}
-
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
@@ -209,6 +210,7 @@ export function CsvImport() {
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   )

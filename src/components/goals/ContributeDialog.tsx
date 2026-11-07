@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select"
 import { useTransactionStore, type FinancialGoal } from "@/lib/store"
 import { useAuthStore } from "@/lib/auth-store"
+import { NoAccountsNotice } from "@/components/accounts/NoAccountsNotice"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -106,6 +107,12 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
                 : "This goal is fully funded."}
             </DialogDescription>
           </DialogHeader>
+          {accounts.length === 0 ? (
+            <NoAccountsNotice
+              description="Create an account before contributing to this goal."
+              onClose={() => setOpen(false)}
+            />
+          ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -152,6 +159,7 @@ export function ContributeDialog({ goal, trigger }: ContributeDialogProps) {
               <Button type="submit" className="w-full" disabled={remaining <= 0}>Contribute</Button>
             </form>
           </Form>
+          )}
         </DialogContent>
       </Dialog>
   )

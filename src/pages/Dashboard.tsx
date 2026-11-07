@@ -2,7 +2,10 @@ import { SummaryCards } from "@/components/dashboard/SummaryCards"
 import { OverviewChart } from "@/components/dashboard/OverviewChart"
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Plus, Wallet } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useTransactionStore } from "@/lib/store"
 import { AddTransactionDialog } from "@/components/transactions/AddTransactionDialog"
 import { ExpensePieChart } from "@/components/dashboard/ExpensePieChart"
 import { GoalsWidget } from "@/components/dashboard/GoalsWidget"
@@ -12,6 +15,8 @@ import { FinancialHealthWidget } from "@/components/dashboard/FinancialHealthWid
 import { BudgetingRuleWidget } from "@/components/dashboard/BudgetingRuleWidget"
 
 export function Dashboard() {
+  const accounts = useTransactionStore((state) => state.accounts)
+
   return (
     <div className="flex-1 space-y-4">
       <div className="flex items-center justify-between space-y-2">
@@ -36,6 +41,27 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {accounts.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-muted p-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Create your first account</p>
+                <p className="text-xs text-muted-foreground">
+                  Add a Cash, Bank, or Wallet account before recording transactions.
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline">
+              <Link to="/accounts">Create Account</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top Row: Summary Cards */}
       <SummaryCards />
